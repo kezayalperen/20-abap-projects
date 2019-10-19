@@ -1,0 +1,69 @@
+METHOD checked_normal_muayene.
+  DATA : BEGIN OF cs ,
+          t020 TYPE /dsl/hl020,
+          return       TYPE   bal_s_msg,
+         END OF   cs .
+*
+  DEFINE add_return    .
+    clear cs-return         .
+    cs-return-msgty     = &1.
+    cs-return-msgid     = c_msg.
+    cs-return-msgno     = &2.
+    cs-return-msgv1     = &3.
+    cs-return-msgv2     = &4.
+    cs-return-msgv3     = &5.
+    cs-return-msgv4     = &6.
+    cs-return-msgv4_src = &7.
+    append cs-return to et_return  .
+  END-OF-DEFINITION    .
+
+  IF NOT i_hlid IS INITIAL .
+    SELECT SINGLE * FROM /dsl/hl020 INTO cs-t020
+         WHERE hlid EQ i_hlid.
+    IF sy-subrc NE 0.
+      add_return 'E'  '002' i_hlid space space space space.
+    ENDIF.
+  ENDIF.
+  IF NOT i_header-pernr IS INITIAL.
+    DATA lv_datum TYPE p0001-begda.
+
+    CALL FUNCTION 'RP_CALC_DATE_IN_INTERVAL'
+      EXPORTING
+        date      = sy-datum
+        days      = '01'
+*       months    =
+        signum    = '+'
+*       years     =
+      IMPORTING
+        calc_date = lv_datum.
+
+    SELECT SINGLE  p00~pernr
+      FROM pa0000 AS p00
+        INTO  cs-t020-pernr
+    WHERE p00~begda LE lv_datum
+    AND   p00~endda GE lv_datum
+    AND   p00~stat2 EQ '3'.
+    IF sy-subrc NE 0.
+      add_return 'E' '003' cs-t020-pernr space space space space .
+    ENDIF.
+  ENDIF.
+  IF i_header-hldt IS INITIAL.
+    add_return 'E'  '004' space space space space space .
+  ENDIF.
+  IF i_header-hlmt IS INITIAL.
+    add_return 'E'  '005' space space space space  space.
+  ENDIF.
+  IF i_header-hlsk IS INITIAL.
+    add_return 'E' '006' space space space space  space.
+  ENDIF.
+  IF i_header-hlbl   IS INITIAL.
+    add_return 'E' '007' space space space space  space.
+  ENDIF.
+  IF i_header-hlrm IS INITIAL.
+    add_return 'E' '008' space space space space  space.
+  ENDIF.
+  IF i_header-tsid IS INITIAL.
+    add_return 'E' '009' space space space space  space.
+  ENDIF.
+
+ENDMETHOD. 
