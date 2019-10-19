@@ -1,0 +1,65 @@
+" CALL BY REFERENCE
+ "  değer için yeni bellek ayrılmaz. Bunun yerine, orijinal bellek konumuna bir işaretçi iletilir.
+ 
+*DATA val1 VALUE 'A'.
+ *
+ *PERFORM s1 USING val1.
+ *
+ *WRITE : / val1.
+ *
+ *FORM s1 USING p1.
+ *
+ *   p1 = 'X'.
+ *
+ * ENDFORM.
+ 
+*DATA : F1 VALUE 'A',
+ *       F2 VALUE 'B'.
+ *
+ *WRITE: / f1 , f2.
+ *
+ *PERFORM s2 USING f1
+ *
+ *CHANGING f2.
+ *
+ *WRITE: / f1, f2.
+ *
+ *FORM s2 USING p1 CHANGING p2.
+ *
+ *p1 = p2 = 'X'.
+ *
+ *ENDFORM.
+ 
+" CALL BY VALUE
+ "Orijinali etkilemeden değiştirebileceğiniz bir değişkenin yerel bir kopyasına ihtiyacınız olduğunda kullanın.
+ 
+*DATA: f1 VALUE 'A'.
+ *
+ *PERFORM s2 USING f1.
+ *
+ *WRITE / f1.
+ *
+ *FORM s2 USING VALUE(p1).
+ *
+ *p1 = 'X'.
+ *
+ *WRITE / p1.
+ *
+ *ENDFORM.
+ 
+*DATA : F1 VALUE 'A',
+ *       F2 VALUE 'B'.
+ *
+ *WRITE: / f1 , f2.
+ *
+ *PERFORM s2 USING f1
+ *
+ *CHANGING f2.
+ *
+ *WRITE: / f1, f2.
+ *
+ *FORM s2 USING VALUE(p1) CHANGING VALUE(p2).
+ *
+ *p1 = p2 = 'X'.
+ *
+ *ENDFORM.
