@@ -1,0 +1,45 @@
+DATA: obj_sas TYPE REF TO zp1512_c003,
+       gs_sas_str  TYPE zp1512_s003,
+       gt_sasitab LIKE TABLE OF gs_sas_str.
+ 
+SELECTION-SCREEN BEGIN OF BLOCK part1 WITH FRAME TITLE poheader.
+ PARAMETERS : p_VENDOR TYPE ELIFN      OBLIGATORY,
+              p_COMPCO TYPE BUKRS      OBLIGATORY,
+              p_DOCTYP TYPE ESART      OBLIGATORY,
+              p_PURCHO TYPE EKORG      OBLIGATORY,
+              p_PURCHG TYPE BKGRP      OBLIGATORY,
+              p_CURREN TYPE WAERS      OBLIGATORY,
+              p_POITEM TYPE EBELP      OBLIGATORY,
+              p_MATERI TYPE MATNR      OBLIGATORY,
+              P_PLANT  TYPE EWERK      OBLIGATORY,
+              P_STGELO TYPE LGORT_D    OBLIGATORY,
+              P_POUNIT TYPE BSTME      OBLIGATORY,
+              P_NETPRI TYPE BAPICUREXT OBLIGATORY,
+              P_PRIUNI TYPE EPEIN      OBLIGATORY,
+              P_ITEMCA TYPE PSTYP      OBLIGATORY,
+              P_ACCTAS TYPE KNTTP      OBLIGATORY.
+ SELECTION-SCREEN END OF BLOCK part1.
+ 
+gs_sas_str-COMP_CODE  = p_COMPCO.
+ gs_sas_str-CURRENCY   = p_CURREN.
+ gs_sas_str-DOC_TYPE   = p_DOCTYP.
+ gs_sas_str-PUR_GROUP  = p_PURCHG.
+ gs_sas_str-PURCH_ORG  = p_PURCHO.
+ gs_sas_str-VENDOR     = p_VENDOR.
+ gs_sas_str-PO_ITEM    = p_POITEM.
+ gs_sas_str-MATERIAL   = P_MATERI.
+ gs_sas_str-PLANT      = P_PLANT .
+ gs_sas_str-STGE_LOC   = P_STGELO.
+ gs_sas_str-PO_UNIT    = P_POUNIT.
+ gs_sas_str-NET_PRICE  = P_NETPRI.
+ gs_sas_str-PRICE_UNIT = P_PRIUNI.
+ gs_sas_str-ITEM_CAT   = P_ITEMCA.
+ gs_sas_str-ACCTASSCAT = P_ACCTAS.
+ 
+START-OF-SELECTION.
+ 
+CREATE OBJECT obj_sas.
+ CALL METHOD obj_sas->SAS_METHOT
+   EXPORTING
+     SAS_STR = gs_sas_str    " bapi connect structer
+   .
