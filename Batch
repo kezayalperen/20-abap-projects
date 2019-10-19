@@ -1,0 +1,438 @@
+*&---------------------------------------------------------------------*
+*& Report ZPMIGA_P007
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&                                                                     *
+*& Created By       : Alperen KEZAY                                    *
+*& Created Date     : 08.04.2019                                       *
+*&                                                                     *
+*&---------------------------------------------------------------------*
+REPORT zpmiga_p007.
+
+
+*----------------------------------------------------------------------*
+*                   U S E R  D A T A                                   *
+*                                                                      *
+*----------------------------------------------------------------------*
+
+TYPES: BEGIN OF ty_excel                                      ,
+         vardamr TYPE          zpmiga_dd018,
+         bglprsn TYPE          zpmiga_dd019,
+         icon    TYPE          icon_d,
+       END OF ty_excel                                        .
+
+DATA : gt_excel TYPE TABLE OF ty_excel,
+       gs_excel TYPE          ty_excel.
+
+DATA : gt_itab        TYPE TABLE OF zpmiga_t009               .
+DATA : gs_itab        TYPE          zpmiga_t009               .
+
+DATA : ld_index     TYPE i.
+DATA : tabix        TYPE sy-tabix.
+
+DATA : li_filetable TYPE          filetable,
+       ls_filetable TYPE          file_table,
+       lv_return    TYPE          i.
+
+DATA : lo_selections  TYPE REF TO   cl_salv_selections        .
+DATA : lv_fname       TYPE          rlgrap-filename           .
+
+DATA : p_scol  TYPE i        VALUE '1',
+       p_srow  TYPE i        VALUE '1',
+       p_ecol  TYPE i        VALUE '256',
+       p_erow  TYPE i        VALUE '65536',
+       lv_type TYPE c.
+
+DATA : lv_length      TYPE          i                         .
+DATA : lv_decimal     TYPE          p             LENGTH 10
+                                                  DECIMALS 2  .
+DATA : lt_intern      TYPE TABLE OF kcde_cells                .
+DATA : ls_intern      TYPE          kcde_cells                .
+DATA : row            TYPE          i             VALUE 1     .
+DATA : salv           TYPE REF TO   cl_salv_table             .
+DATA : gt_rows TYPE          salv_t_row,
+       gs_rows LIKE LINE OF  gt_rows.
+
+CONSTANTS :
+  gc_int    TYPE          icon-id       VALUE '@BZ@',
+  gc_ok     TYPE          icon-id       VALUE '@01@',
+  gc_incomp TYPE          icon-id       VALUE '@02@'.
+
+FIELD-SYMBOLS :<fs> TYPE any.
+
+*----------------------------------------------------------------------*
+*       C L A S S  L C L _ C L A S S   D E F I N I T I O N             *
+*                                                                      *
+*                                                                      *
+*----------------------------------------------------------------------*
+
+
+CLASS lc_main DEFINITION.
+
+*----------------------------------------------------------------------*
+*                   C L A S S      D A T A                             *
+*                                                                      *
+*----------------------------------------------------------------------*
+
+  PUBLIC SECTION.
+
+
+
+    DATA:
+      lo_events       TYPE REF TO   cl_salv_events_table,
+      lo_columns      TYPE REF TO   cl_salv_columns_table,
+
+      column          TYPE REF TO   cl_salv_column,
+      display_setting TYPE REF TO   cl_salv_display_settings,
+      lo_column       TYPE REF TO   cl_salv_column_table,
+      gr_function     TYPE REF TO   cl_salv_functions_list,
+      gr_layout       TYPE REF TO   cl_salv_layout,
+      selections      TYPE REF TO   cl_salv_selections,
+      lo_handler      TYPE REF TO   lc_main.
+
+
+*----------------------------------------------------------------------*
+*                   C L A S S      M E T H O D                         *
+*                                                                      *
+*----------------------------------------------------------------------*
+
+    METHODS:
+      get_excel RETURNING VALUE(ret) TYPE char1    ,
+
+      set_column                                   ,
+
+      setting                                      ,
+
+      layout                                       ,
+
+      get_function                                 ,
+
+      get_salv                                     ,
+
+      on_user_command
+        FOR EVENT added_function OF cl_salv_events ,
+      get_filename CHANGING file   TYPE char200 .
+
+ENDCLASS.
+*----------------------------------------------------------------------*
+*       C L A S S  L C L _ C L A S S  I M P L E M E N T A T I O N      *
+*                                                                      *
+*                                                                      *
+*----------------------------------------------------------------------*
+CLASS lc_main IMPLEMENTATION.
+*----------------------------------------------------------------------*
+*                         G E T _ E X C E L                            *
+*                                                                      *
+*                                                                      *
+*----------------------------------------------------------------------*
+  METHOD get_filename.
+    DATA: lt_files TYPE filetable,
+          ls_files TYPE file_table,
+          lv_rc    LIKE sy-subrc.
+
+    CALL METHOD cl_gui_frontend_services=>file_open_dialog
+      EXPORTING
+        file_filter             = cl_gui_frontend_services=>filetype_excel
+      CHANGING
+        file_table              = lt_files
+        rc                      = lv_rc
+      EXCEPTIONS
+        file_open_dialog_failed = 1
+        cntl_error              = 2
+        error_no_gui            = 3
+        not_supported_by_gui    = 4
+        OTHERS                  = 5.
+
+    IF sy-subrc <> 0 OR lv_rc < 0.
+      MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+                WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+    ELSE.
+      READ TABLE lt_files INDEX 1 INTO ls_files.
+      file = ls_files-filename.
+    ENDIF.
+  ENDMETHOD.
+  METHOD: get_excel.
+
+    CALL METHOD cl_gui_frontend_services=>file_open_dialog
+      EXPORTING
+        window_title            = 'Select file for download'
+        default_extension       = '.txt'
+        default_filename        = '.txt'
+        file_filter             = '.xls'
+        initial_directory       = 'C:\Desktop'
+      CHANGING
+        file_table              = li_filetable
+        rc                      = lv_return
+      EXCEPTIONS
+        file_open_dialog_failed = 1
+        cntl_error              = 2
+        error_no_gui            = 3
+        not_supported_by_gui    = 4
+        OTHERS                  = 5.
+    IF sy-subrc <> 0.
+    ENDIF.
+
+    IF li_filetable is not INITIAL.
+
+      ret = 'X'.
+
+    ELSE.
+
+      ret = ''.
+
+    ENDIF.
+
+    CHECK ret = 'X'.
+
+    " file alındı.
+
+    LOOP AT li_filetable ASSIGNING FIELD-SYMBOL(<fs_field>).
+      lv_fname = <fs_field>-filename.
+    ENDLOOP.
+
+*    MOVE : p_file TO lv_fname .
+
+    CALL FUNCTION 'KCD_EXCEL_OLE_TO_INT_CONVERT'
+      EXPORTING
+        filename                = lv_fname
+        i_begin_col             = p_scol
+        i_begin_row             = p_srow
+        i_end_col               = p_ecol
+        i_end_row               = p_erow
+      TABLES
+        intern                  = lt_intern
+      EXCEPTIONS
+        inconsistent_parameters = 1
+        upload_ole              = 2
+        OTHERS                  = 3.
+    IF sy-subrc <> 0.
+      FORMAT COLOR COL_BACKGROUND INTENSIFIED.
+      WRITE:/ 'Dosya Yüklenirken Hata !'.
+      EXIT.
+    ENDIF.
+    " alınan file insert edilecek
+    IF lt_intern[] IS INITIAL.
+      CHECK 1 EQ 2.
+      " boşsa bitir.
+    ELSE.
+      SORT lt_intern BY row col.
+    ENDIF.
+
+    LOOP AT lt_intern ASSIGNING FIELD-SYMBOL(<f1>).
+      MOVE <f1>-col TO sy-index.
+      ASSIGN COMPONENT ld_index OF STRUCTURE gs_excel TO <fs>.
+      CASE <f1>-col.
+        WHEN 1.
+          gs_excel-vardamr = <f1>-value.
+
+        WHEN 2.
+          gs_excel-bglprsn = <f1>-value.
+
+
+      ENDCASE.
+      AT END OF row.
+        APPEND gs_excel TO gt_excel.
+        CLEAR gs_excel.
+
+
+      ENDAT.
+    ENDLOOP.
+
+    LOOP AT gt_excel ASSIGNING FIELD-SYMBOL(<fx>).
+          IF sy-subrc EQ 0.
+            <fx>-icon = gc_ok.
+          ELSE.
+            <fx>-icon = gc_incomp.
+          ENDIF.
+          <fx>-icon = gc_int.
+
+          CLEAR gs_excel.
+        ENDLOOP.
+  ENDMETHOD.
+*----------------------------------------------------------------------*
+*                      G E T _ F U N C T I O N                         *
+*                                                                      *
+*                                                                      *
+*----------------------------------------------------------------------*
+
+  METHOD get_function.
+    "   GUI oluşturmak için
+    gr_function = salv->get_functions( ).
+    gr_function->set_all( abap_true ).
+  ENDMETHOD.
+*----------------------------------------------------------------------*
+*                         G E T _ S A L V                              *
+*                                                                      *
+*                                                                      *
+*----------------------------------------------------------------------*
+
+  METHOD get_salv.
+    TRY.
+        CALL METHOD cl_salv_table=>factory
+          IMPORTING
+            r_salv_table = salv
+          CHANGING
+            t_table      = gt_excel.
+      CATCH cx_salv_msg .
+    ENDTRY.
+
+    lo_selections = salv->get_selections( ).
+    lo_selections->set_selection_mode(
+    if_salv_c_selection_mode=>row_column ).
+
+    CALL METHOD salv->get_event
+      RECEIVING
+        value = lo_events.
+
+    CREATE OBJECT lo_handler.
+
+    SET HANDLER lo_handler->on_user_command
+    FOR lo_events  ACTIVATION abap_true .
+
+    "GUI oluşturmak için
+    salv->set_screen_status( " oluşturduğumuz guiyi çağirdik.
+    EXPORTING
+      report        = sy-repid "programın adı.
+      pfstatus      = 'SALV_STANDARD' "oluşturduğun guinin adi.
+      set_functions = salv->c_functions_all ). "fonksiyonlarını çektik.
+
+    set_column( ).
+
+    layout( ).
+
+    setting( ).
+
+    get_function( ).
+
+    salv->display( ).
+  ENDMETHOD.
+*----------------------------------------------------------------------*
+*                         S E T T I N G S                              *
+*                                                                      *
+*                                                                      *
+*----------------------------------------------------------------------*
+
+  METHOD setting.
+
+    display_setting = salv->get_display_settings( ).
+
+    display_setting->set_striped_pattern( abap_true ). "zebra
+  ENDMETHOD.
+*----------------------------------------------------------------------*
+*                         L A Y O U T                                  *
+*                                                                      *
+*                                                                      *
+*----------------------------------------------------------------------*
+
+  METHOD layout.
+
+    gr_layout = salv->get_layout( ).
+
+    selections = salv->get_selections( ). "mark alanı oluşturduk
+
+    selections->set_selection_mode( 3 ).
+  ENDMETHOD.
+*----------------------------------------------------------------------*
+*                         S E T _ C O L U N M                          *
+*                                                                      *
+*                                                                      *
+*----------------------------------------------------------------------*
+
+  METHOD set_column.
+
+    DATA: lo_cols   TYPE REF TO cl_salv_columns.
+    DATA: lo_column TYPE REF TO cl_salv_column.
+
+    lo_columns = salv->get_columns( ). "KOLONLARI ÇAĞIRDIK.
+
+    lo_columns->set_optimize( abap_true ). "TÜM KOLONLAR EŞİT.
+
+    lo_columns = salv->get_columns( ). "EŞİTLEDİKTEN SONRA ÇAĞIRDIK.
+
+    TRY.
+        lo_column ?= lo_columns->get_column( columnname = 'UFLAG' ).
+
+      CATCH cx_salv_not_found .
+    ENDTRY.
+
+    lo_cols = salv->get_columns( ).
+
+    lo_cols->set_optimize( 'X' ).
+
+    TRY.
+        lo_column = lo_cols->get_column( 'ICON' ).
+        lo_column->set_long_text( 'ICON' ).
+        lo_column->set_medium_text( 'ICON' ).
+        lo_column->set_short_text( 'ICON' ).
+        lo_column->set_output_length( 10 ).
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+  ENDMETHOD.
+*----------------------------------------------------------------------*
+*                    O N _ U S E R _ C O M M A N D                     *
+*                                                                      *
+*                                                                      *
+*----------------------------------------------------------------------*
+
+  METHOD on_user_command.
+    DATA : u_vardamr TYPE char12.
+    DATA : u_bglprsn TYPE char12.
+
+    CASE sy-ucomm.
+      WHEN 'BATCH'.
+        gt_rows = lo_selections->get_selected_rows( ).
+
+        LOOP AT gt_rows INTO gs_rows.
+
+          READ TABLE gt_excel INTO gs_excel INDEX gs_rows.
+
+          MOVE-CORRESPONDING gs_excel TO gs_itab.
+
+          INSERT zpmiga_t009 FROM gs_itab.
+
+          IF sy-subrc EQ 0.
+            MESSAGE 'KAYIT BAŞARILI. ' TYPE 'S'.
+            ELSE.
+              MESSAGE 'KAYIT BAŞARISIZ !' TYPE 'E'.
+          ENDIF.
+
+          MODIFY gt_excel FROM gs_excel INDEX sy-tabix.
+
+        ENDLOOP.
+
+    ENDCASE.
+
+  ENDMETHOD.
+ENDCLASS.
+
+
+*&---------------------------------------------------------------------*
+*&                 I N I T I A L I Z A T I O N                         *
+*&                                                                     *
+*&---------------------------------------------------------------------*
+INITIALIZATION.
+
+  DATA obj TYPE REF TO lc_main.
+  CREATE OBJECT obj.
+*  AT SELECTION-SCREEN ON VALUE-REQUEST FOR p_file.
+*    obj->get_filename( CHANGING file = p_file ).
+*&---------------------------------------------------------------------*
+*&              S T A R T - O F - S E L E C T I O N                    *
+*&                                                                     *
+*&---------------------------------------------------------------------*
+START-OF-SELECTION.
+  CREATE OBJECT obj.
+
+
+
+*&---------------------------------------------------------------------*
+*&               E N D - O F - S E L E C T I O N                       *
+*&                                                                     *
+*&---------------------------------------------------------------------*
+END-OF-SELECTION.
+
+  IF obj->get_excel( ) eq 'X'.
+    obj->get_salv( ).
+  ELSE.
+    MESSAGE i048(zpmiga_mc01) DISPLAY LIKE 'W'.
+  ENDIF. 
