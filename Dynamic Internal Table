@@ -1,0 +1,75 @@
+FIELD-SYMBOLS: <fs_table> TYPE STANDARD TABLE ,
+               <fs_wa>                        ,
+               <fs_field>                     ,
+               <fs_field2>                    .
+  DATA:       DYN_TABLE     TYPE REF TO   DATA        ,
+              DYN_LINE      TYPE REF TO   DATA        ,
+              WA_FIELDCAT   TYPE          LVC_S_FCAT  ,
+              IT_FIELDCAT   TYPE          LVC_T_FCAT  ,
+              GT_ITAB       TYPE TABLE OF SFLIGHT     ,
+              GS_ITAB       LIKE          SFLIGHT     .
+*ALV data declarations
+DATA:
+      gt_fcat TYPE lvc_t_fcat,
+      gs_fcat TYPE lvc_s_fcat.
+
+CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+      EXPORTING
+        i_structure_name       = 'SFLIGHT'
+        i_bypassing_buffer     = abap_true
+      CHANGING
+        ct_fieldcat            = gt_fcat[]
+      EXCEPTIONS
+        inconsistent_interface = 1
+        program_error          = 2
+        OTHERS                 = 3.
+    BREAK-POINT.
+    gs_fcat-fieldname = 'STATU'.
+    gs_fcat-intlen = 10.
+    gs_fcat-datatype = 'CHAR10'.
+    gs_fcat-seltext = 'Fiyat Durumu'.
+    gs_fcat-reptext = 'Fiyat Durumu'.
+    gs_fcat-col_pos  = 15.
+
+  APPEND gs_fcat TO gt_fcat.
+
+
+     CALL METHOD cl_alv_table_create=>create_dynamic_table
+  EXPORTING
+    it_fieldcatalog = gt_fcat
+  IMPORTING
+    ep_table = dyn_table.
+
+     ASSIGN dyn_table->* TO <fs_table>.
+
+"Dinamik structure oluşturuyoruz fs ile
+CREATE DATA dyn_table LIKE LINE OF <fs_table>.
+ASSIGN dyn_table->* TO <fs_wa>.
+SELECT * INTO CORRESPONDING FIELDS OF TABLE  <fs_table>
+             FROM sflight.
+LOOP AT <fs_table> INTO <fs_wa>.
+
+ASSIGN COMPONENT 'PRICE' OF STRUCTURE <fs_wa> TO <fs_field> .
+ASSIGN COMPONENT 'STATU' OF STRUCTURE <fs_wa> TO <fs_field2> .
+
+IF <fs_field> IS ASSIGNED AND <fs_field2> IS ASSIGNED.
+      IF <fs_field> LE 400.
+        <fs_field2> = 'Düşük'.
+      ELSEIF <fs_field> GE 401 AND <fs_field> LE 500.
+        <fs_field2> = 'NORMAL'.
+      ELSE.
+        <fs_field2> = 'Yüksek'.
+      ENDIF.
+ENDIF.
+MODIFY <fs_table> FROM <fs_wa>.
+ENDLOOP.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+   EXPORTING
+     it_fieldcat_lvc                   = gt_fcat
+    TABLES
+      t_outtab                          = <fs_table>
+   EXCEPTIONS
+     program_error                     = 1
+     OTHERS                            = 2
+            . 
