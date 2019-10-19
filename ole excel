@@ -1,0 +1,216 @@
+*&---------------------------------------------------------------------*
+*& Report  ZP1431_P090
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+
+REPORT  ZP1431_P090.
+INCLUDE ole2incl.
+
+PARAMETERS: p_file TYPE localfile DEFAULT 'c:\test_ole_excel_sap.xls'.
+
+TABLES : pa0001.
+DATA   : gt_pa01 TYPE TABLE OF pa0001,
+         ls_pa01 TYPE pa0001.
+
+
+DATA: w_excel TYPE ole2_object,
+      w_workbooks TYPE ole2_object,
+      w_workbook TYPE ole2_object,
+      w_cell TYPE ole2_object,
+*      cell1 TYPE ole2_object,
+*      cell2 TYPE ole2_object,
+*      cell3 TYPE ole2_object,
+*      cell4 TYPE ole2_object,
+      font TYPE ole2_object,
+      column TYPE ole2_object,
+      range TYPE ole2_object,
+      range2 TYPE ole2_object,
+      range3 TYPE ole2_object,
+      range4 TYPE ole2_object,
+      border TYPE ole2_object,
+      shading TYPE ole2_object,
+      w_cells TYPE ole2_object,
+      wf_worksheet TYPE ole2_object,
+      picture TYPE ole2_object,
+      select TYPE ole2_object.
+
+DATA : w_line TYPE i.
+
+START-OF-SELECTION.
+
+    SELECT * FROM pa0001 INTO TABLE gt_pa01 UP TO 100 ROWS
+      WHERE begda LE sy-datum
+        AND endda GE sy-datum.
+
+      SORT gt_pa01 BY pernr.
+      DELETE ADJACENT DUPLICATES FROM gt_pa01 COMPARING pernr.
+
+* Create OLE automation object of type Excel.Application.
+  CREATE OBJECT w_excel 'Excel.Application'.
+
+* Add a new Excel Workbook.
+  CALL METHOD OF w_excel 'Workbooks' = w_workbooks.
+  CALL METHOD OF w_workbooks 'Add' = w_workbook.
+
+* Display MS-Excel when executing the program.
+  SET PROPERTY OF w_excel 'Visible' = 1.
+
+* Export title to the Excel sheet.
+  CALL METHOD OF w_excel 'Cells' = w_cell
+                         EXPORTING #1 = 1 #2 = 1.
+  SET PROPERTY OF w_cell 'Value' = 'User ID'.
+
+  CALL METHOD OF w_excel 'Cells' = w_cell
+                         EXPORTING #1 = 1 #2 = 2.
+  SET PROPERTY OF w_cell 'Value' = 'Begda'.
+
+  CALL METHOD OF w_excel 'Cells' = w_cell
+                         EXPORTING #1 = 1 #2 = 3.
+  SET PROPERTY OF w_cell 'Value' = 'Endda'.
+
+  CALL METHOD OF w_excel 'Cells' = w_cell
+                         EXPORTING #1 = 1 #2 = 4.
+  SET PROPERTY OF w_cell 'Value' = 'Ename'.
+
+
+* Export data to the Excel sheet.
+  w_line = 2.
+
+  LOOP AT gt_pa01 INTO ls_pa01.
+
+    CALL METHOD OF w_excel 'Cells' = w_cell
+                           EXPORTING #1 = w_line #2 = 1.
+    SET PROPERTY OF w_cell 'NumberFormat' = '00000000'.
+    SET PROPERTY OF w_cell 'Value' = ls_pa01-PERNR.
+
+    CALL METHOD OF w_excel 'Cells' = w_cell
+                           EXPORTING #1 = w_line #2 = 2.
+"    SET PROPERTY OF w_cell 'NumberFormat' = 'dd/mm/yyyy'.
+    SET PROPERTY OF w_cell 'Value' = ls_pa01-begda.
+
+    CALL METHOD OF w_excel 'Cells' = w_cell
+                           EXPORTING #1 = w_line #2 = 3.
+    SET PROPERTY OF w_cell 'Value' = ls_pa01-begda.
+
+    CALL METHOD OF w_excel 'Cells' = w_cell
+                           EXPORTING #1 = w_line #2 = 4.
+    SET PROPERTY OF w_cell 'Value' = ls_pa01-ENAME.
+
+    ADD 1 TO w_line.
+  ENDLOOP.
+*--------------------------------------------------------------------*
+ " create range 2 diff way
+
+* CALL METHOD of w_excel 'Cells' = cell1
+*    EXPORTING
+*      #1 = 1     "down
+*      #2 = 1.    "across
+**End of range Cell
+*  CALL METHOD of w_excel 'Cells' = cell2
+*    EXPORTING
+*      #1 = 1     "down
+*      #2 = 4.   "across
+*
+*  CALL METHOD of w_excel 'Range' = range
+*    EXPORTING
+*      #1 = cell1
+*      #2 = cell2.
+
+   CALL METHOD OF w_excel 'RANGE' = range
+       EXPORTING #1 = 'A1'
+                 #2 = 'D1'.
+
+*--------------------------------------------------------------------*
+*  CALL METHOD of w_excel 'Cells' = cell3
+*    EXPORTING
+*      #1 = 2
+*      #2 = 1.
+*
+*  CALL METHOD of w_excel 'Cells' = cell4
+*    EXPORTING
+*      #1 = 3
+*      #2 = 4.
+*    CALL METHOD of w_excel 'Range' = range2
+*    EXPORTING
+*      #1 = cell3
+*      #2 = cell4.
+     CALL METHOD OF w_excel 'RANGE' = range2
+       EXPORTING #1 = 'A2'
+                 #2 = 'D4'.
+*--------------------------------------------------------------------*
+  CALL METHOD OF w_excel 'RANGE' = range4
+       EXPORTING #1 = 'E2'
+                 #2 = 'H4'.
+
+  call method of range4 'BORDERS' = border
+       exporting #1 = '1' . " 1->left 2-> right
+
+  set property of border 'LineStyle' = '1'. "line style solid, dashed...
+  set property of border 'WEIGHT' = 4. "max = 4
+  free object border.
+
+  call method of range4 'BORDERS' = BORDER exporting #1 = '2'.  "right
+  set property of border 'LineStyle' = '1'.
+  set property of border 'WEIGHT' = 4.                         "max = 4
+  free object border.
+
+  call method of range4 'BORDERS' = BORDER exporting #1 = '3'.   "top
+  set property of border 'LineStyle' = '1'.
+  set property of border 'WEIGHT' = 4.                          "max = 4
+  free object border.
+
+   call method of range4  'BORDERS' = BORDER exporting #1 = '4'.   "bottom
+   set property of border 'LineStyle' = '1'.
+   set property of border 'WEIGHT' = 4.   "max = 4
+   free object border.
+
+*--------------------------------------------------------------------*
+  GET PROPERTY OF range 'Font' = font.
+  SET PROPERTY OF font  'Bold' = 1.
+  SET property of font  'Size' = 12.
+  FREE OBJECT font.
+
+
+  call method of range2   'INTERIOR' = shading.
+  set property of shading 'ColorIndex' = 3.
+  FREE OBJECT shading.
+
+  CALL METHOD OF w_excel 'Columns' = COLUMN.
+  CALL METHOD OF COLUMN  'Autofit'.
+*--------------------------------------------------------------------*
+
+CALL METHOD OF w_excel 'Range' = w_cells
+             EXPORTING
+               #1             = 'L1'
+               #2             = 'R4'.
+
+           CALL METHOD OF w_cells
+               'Select' = select.
+
+           GET PROPERTY OF
+               wf_worksheet
+               'Pictures' = picture.
+
+           CALL METHOD OF
+               picture
+               'Insert'
+             EXPORTING
+               #1       = 'C:\Users\dtypc\Desktop\logo.bmp'.
+
+
+*--------------------------------------------------------------------*
+ "Save file.
+  CALL METHOD OF w_workbook 'SaveAs'
+                            EXPORTING #1 = p_file
+                                      #6 = 1.
+
+* Quit Excel.
+  CALL METHOD OF w_excel 'Quit'.
+
+  FREE OBJECT: w_excel,
+               w_workbooks,
+               w_workbook,
+               w_cell. 
