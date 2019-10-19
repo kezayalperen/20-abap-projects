@@ -1,0 +1,107 @@
+TABLES : mara , makt.
+ 
+DATA : lcl_alv TYPE REF TO cl_gui_alv_grid.
+ 
+TYPES : BEGIN OF ty_data,
+         matnr TYPE mara-matnr,
+         meins TYPE mara-meins,
+         maktx TYPE makt-MAKTX,
+         cnt   TYPE sy-dbcnt,
+   END OF ty_Data.
+ 
+DATA : gt_fcat TYPE lvc_t_fcat,
+        gs_fcat TYPE lvc_s_fcat.
+ 
+DATA gt_itab TYPE TABLE OF zp1512_s005.
+ 
+SELECT mar~matnr
+        meins
+        maktx
+   FROM mara as mar INNER JOIN makt as mak
+   on  mar~matnr EQ mak~matnr
+   INTO CORRESPONDING FIELDS OF TABLE gt_itab.
+ 
+  CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+    EXPORTING
+ *     I_BUFFER_ACTIVE              =
+      I_STRUCTURE_NAME             = 'ZP1512_S005'
+ *     I_CLIENT_NEVER_DISPLAY       = 'X'
+ *     I_BYPASSING_BUFFER           =
+ *     I_INTERNAL_TABNAME           =
+     CHANGING
+       CT_FIELDCAT                  = gt_fcat
+ *   EXCEPTIONS
+ *     INCONSISTENT_INTERFACE       = 1
+ *     PROGRAM_ERROR                = 2
+ *     OTHERS                       = 3
+             .
+   IF SY-SUBRC <> 0.
+ * Implement suitable error handling here
+   ENDIF.
+ 
+START-OF-SELECTION.
+ 
+  CREATE OBJECT LCL_ALV
+     exporting
+ *      I_SHELLSTYLE      = 0    " Control Style
+ *      I_LIFETIME        =     " Lifetime
+       I_PARENT          =  cl_gui_container=>screen0.   " Parent Container
+ *      I_APPL_EVENTS     = SPACE    " Register Events as Application Events
+ *      I_PARENTDBG       =     " Internal, Do not Use
+ *      I_APPLOGPARENT    =     " Container for Application Log
+ *      I_GRAPHICSPARENT  =     " Container for Graphics
+ *      I_NAME            =     " Name
+ *      I_FCAT_COMPLETE   = SPACE    " Boolean Variable (X=True, Space=False)
+ *    exceptions
+ *      ERROR_CNTL_CREATE = 1
+ *      ERROR_CNTL_INIT   = 2
+ *      ERROR_CNTL_LINK   = 3
+ *      ERROR_DP_CREATE   = 4
+ *      OTHERS            = 5
+   .
+   IF sy-subrc <> 0.
+ 
+  ENDIF.
+ 
+  CALL METHOD lcl_alv->SET_TABLE_FOR_FIRST_DISPLAY
+     EXPORTING
+ 
+      I_STRUCTURE_NAME              =  'GS_STR'   " Internal Output Table Structure Name
+ 
+    CHANGING
+       IT_OUTTAB                     = gt_itab    " Output Table
+      IT_FIELDCATALOG               =  gt_fcat  " Field Catalog
+ 
+  EXCEPTIONS
+     INVALID_PARAMETER_COMBINATION = 1
+     PROGRAM_ERROR                 = 2
+     TOO_MANY_LINES                = 3
+     OTHERS                        = 4
+     .
+   IF sy-subrc <> 0.
+ * message id sy-msgid type sy-msgty number sy-msgno
+ *            with sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+   ENDIF.
+ 
+  CALL SCREEN 100.
+ *&---------------------------------------------------------------------*
+ *&      Module  STATUS_0100  OUTPUT
+ *&---------------------------------------------------------------------*
+ *       text
+ *----------------------------------------------------------------------*
+ MODULE STATUS_0100 OUTPUT.
+   SET PF-STATUS 'GUI'.
+ *  SET TITLEBAR 'xxx'.
+ 
+ENDMODULE.                 " STATUS_0100  OUTPUT
+ *&---------------------------------------------------------------------*
+ *&      Module  USER_COMMAND_0100  INPUT
+ *&---------------------------------------------------------------------*
+ *       text
+ *----------------------------------------------------------------------*
+ MODULE USER_COMMAND_0100 INPUT.
+   CASE sy-ucomm.
+     WHEN '&F03'.
+       LEAVE TO SCREEN 0.
+   ENDCASE.
+ ENDMODULE.                 " USER_COMMAND_0100  INPUT
