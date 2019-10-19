@@ -1,0 +1,297 @@
+
+TABLES: ekko.
+
+*----Declaration of type pools for ALV slis----------------------------*
+TYPE-POOLS: slis.
+
+*------Declaration of internal table structures------------------------*
+
+DATA :
+
+       it_ekko TYPE TABLE OF zp1512_s012,
+       it_ekpo TYPE TABLE OF zp1512_s013,
+
+      "Field catalog work area & tables
+            wa_fcat TYPE slis_fieldcat_alv,
+            it_fcat TYPE slis_t_fieldcat_alv,
+
+      "ALV layout work area
+      wa_layout TYPE slis_layout_alv,
+
+      "Key information for hierarchical list
+      wa_key TYPE slis_keyinfo_alv.
+
+*------Event Initialization--------------------------------------------*
+*INITIALIZATION.
+*  SELECT-OPTIONS: s_ebeln FOR ekko-ebeln.
+
+*-----Event Start of Selection-----------------------------------------*
+START-OF-SELECTION.
+  PERFORM get_ekko.
+  PERFORM get_ekpo.
+  PERFORM field_catalog.
+  PERFORM alv_layout.
+  PERFORM key_info.
+  PERFORM alv_hierseq_list_display.
+
+*&---------------------------------------------------------------------*
+*&      Form  get_ekko
+*&---------------------------------------------------------------------*
+*       Get data from PO header
+*----------------------------------------------------------------------*
+FORM get_ekko .
+  SELECT NAME1
+         EKP~EBELN
+         NETWR
+         MEINS
+         MENGE
+         EKK~LIFNR
+         NETPR
+         EKK~WAERS
+    INTO CORRESPONDING FIELDS OF TABLE IT_EKKO
+    FROM LFA1 AS LFA
+    INNER JOIN EKKO AS EKK
+    ON LFA~LIFNR EQ EKK~LIFNR
+    LEFT OUTER JOIN EKPO AS EKP
+    ON EKK~EBELN EQ EKP~EBELN.
+    SORT it_ekko by LIFNR.
+    DELETE ADJACENT DUPLICATES FROM it_ekko COMPARING LIFNR.
+
+
+ENDFORM.                    " get_ekko
+*&---------------------------------------------------------------------*
+*&      Form  get_ekpo
+*&---------------------------------------------------------------------*
+*       Get data from PO item
+*----------------------------------------------------------------------*
+FORM get_ekpo .
+
+  IF it_ekko IS NOT INITIAL.
+
+    SELECT *
+      INTO CORRESPONDING FIELDS OF TABLE it_ekpo
+          FROM EKKO AS EKK
+          INNER JOIN EKPO AS EKP
+          ON EKK~EBELN EQ EKP~EBELN
+          INNER JOIN MARA AS MAR
+          ON MAR~MEINS EQ EKP~MEINS
+          INNER JOIN MAKT AS MAK
+          ON MAK~MATNR EQ MAR~MATNR
+          INNER JOIN LFA1 AS LFA
+          ON LFA~LIFNR EQ EKK~LIFNR
+          FOR ALL ENTRIES IN it_ekko
+          WHERE EKK~ebeln eq it_ekko-ebeln.
+
+    IF sy-subrc = 0.
+      SORT it_ekpo.
+    ENDIF.
+  ENDIF.
+
+ENDFORM.                    " get_ekpo
+*&---------------------------------------------------------------------*
+*&      Form  field_catalog
+*&---------------------------------------------------------------------*
+*       Preparing the Field catalog for header & item both in one
+*----------------------------------------------------------------------*
+FORM field_catalog.
+
+  DATA lv_col TYPE i VALUE 0.
+
+  IF it_ekko IS NOT INITIAL.
+
+    lv_col            = lv_col + 1.
+    wa_fcat-col_pos   = lv_col.
+    wa_fcat-fieldname = 'LIFNR'.
+    wa_fcat-tabname   = 'IT_EKKO'.
+    wa_fcat-seltext_l = 'SATICI KODU'.
+    APPEND wa_fcat TO it_fcat.
+    CLEAR wa_fcat.
+
+    lv_col            = lv_col + 1.
+    wa_fcat-col_pos   = lv_col.
+    wa_fcat-fieldname = 'NAME1'.
+    wa_fcat-tabname   = 'IT_EKKO'.
+    wa_fcat-seltext_l = 'SATICI ADI'.
+    APPEND wa_fcat TO it_fcat.
+    CLEAR wa_fcat.
+
+    lv_col            = lv_col + 1.
+    wa_fcat-col_pos   = lv_col.
+    wa_fcat-fieldname = 'MENGE'.
+    wa_fcat-tabname   = 'IT_EKKO'.
+    wa_fcat-seltext_l = 'SAS MIKTARI'.
+    APPEND wa_fcat TO it_fcat.
+    CLEAR wa_fcat.
+
+    lv_col            = lv_col + 1.
+    wa_fcat-col_pos   = lv_col.
+    wa_fcat-fieldname = 'MEINS'.
+    wa_fcat-tabname   = 'IT_EKKO'.
+    wa_fcat-seltext_l = 'OLCU BIRIMI'.
+    APPEND wa_fcat TO it_fcat.
+    CLEAR wa_fcat.
+
+    lv_col            = lv_col + 1.
+    wa_fcat-col_pos   = lv_col.
+    wa_fcat-fieldname = 'NETPR'.
+    wa_fcat-tabname   = 'IT_EKKO'.
+    wa_fcat-seltext_l = 'NET FIYAT'.
+    APPEND wa_fcat TO it_fcat.
+    CLEAR wa_fcat.
+
+    lv_col            = lv_col + 1.
+    wa_fcat-col_pos   = lv_col.
+    wa_fcat-fieldname = 'WAERS'.
+    wa_fcat-tabname   = 'IT_EKKO'.
+    wa_fcat-seltext_l = 'BIRIM'.
+    APPEND wa_fcat TO it_fcat.
+    CLEAR wa_fcat.
+
+    lv_col            = lv_col + 1.
+    wa_fcat-col_pos   = lv_col.
+    wa_fcat-fieldname = 'NETWR'.
+    wa_fcat-tabname   = 'IT_EKKO'.
+    wa_fcat-seltext_l = 'SAS TOPLAM TUTARI'.
+    APPEND wa_fcat TO it_fcat.
+    CLEAR wa_fcat.
+
+  ENDIF.
+
+  IF it_ekpo IS NOT INITIAL.
+
+    lv_col            = lv_col + 1.
+    wa_fcat-col_pos   = lv_col.
+    wa_fcat-fieldname = 'EBELN'.
+    wa_fcat-tabname   = 'IT_EKPO'.
+    wa_fcat-seltext_l = 'SAS SIPARISI'.
+    APPEND wa_fcat TO it_fcat.
+    CLEAR wa_fcat.
+
+    lv_col            = lv_col + 1.
+    wa_fcat-col_pos   = lv_col.
+    wa_fcat-fieldname = 'EBELP'.
+    wa_fcat-tabname   = 'IT_EKPO'.
+    wa_fcat-seltext_l = 'SAS KALEMI'.
+    APPEND wa_fcat TO it_fcat.
+    CLEAR wa_fcat.
+
+    lv_col            = lv_col + 1.
+    wa_fcat-col_pos   = lv_col.
+    wa_fcat-fieldname = 'MATNR'.
+    wa_fcat-tabname   = 'IT_EKPO'.
+    wa_fcat-seltext_l = 'MALZEME NO'.
+    APPEND wa_fcat TO it_fcat.
+    CLEAR wa_fcat.
+
+    lv_col            = lv_col + 1.
+    wa_fcat-col_pos   = lv_col.
+    wa_fcat-fieldname = 'MAKTX'.
+    wa_fcat-tabname   = 'IT_EKPO'.
+    wa_fcat-seltext_l = 'MALZEME ADI'.
+    APPEND wa_fcat TO it_fcat.
+    CLEAR wa_fcat.
+
+    lv_col            = lv_col + 1.
+    wa_fcat-col_pos   = lv_col.
+    wa_fcat-fieldname = 'NETWR'.
+    wa_fcat-tabname   = 'IT_EKPO'.
+    wa_fcat-seltext_l = 'ADET TUTARI'.
+    APPEND wa_fcat TO it_fcat.
+    CLEAR wa_fcat.
+
+    lv_col            = lv_col + 1.
+    wa_fcat-col_pos   = lv_col.
+    wa_fcat-fieldname = 'NETPR'.
+    wa_fcat-tabname   = 'IT_EKPO'.
+    wa_fcat-seltext_l = 'SAS TUTARI'.
+    APPEND wa_fcat TO it_fcat.
+    CLEAR wa_fcat.
+
+    lv_col            = lv_col + 1.
+    wa_fcat-col_pos   = lv_col.
+    wa_fcat-fieldname = 'MENGE'.
+    wa_fcat-tabname   = 'IT_EKPO'.
+    wa_fcat-seltext_l = 'SIPARIS MIKTARI'.
+    APPEND wa_fcat TO it_fcat.
+    CLEAR wa_fcat.
+
+    lv_col            = lv_col + 1.
+    wa_fcat-col_pos   = lv_col.
+    wa_fcat-fieldname = 'MEINS'.
+    wa_fcat-tabname   = 'IT_EKPO'.
+    wa_fcat-seltext_l = 'OLCU BIRIMI'.
+    APPEND wa_fcat TO it_fcat.
+    CLEAR wa_fcat.
+
+    lv_col            = lv_col + 1.
+    wa_fcat-col_pos   = lv_col.
+    wa_fcat-fieldname = 'NETWR'.
+    wa_fcat-tabname   = 'IT_EKPO'.
+    wa_fcat-seltext_l = 'NET FIYAT'.
+    APPEND wa_fcat TO it_fcat.
+    CLEAR wa_fcat.
+
+    lv_col            = lv_col + 1.
+    wa_fcat-col_pos   = lv_col.
+    wa_fcat-fieldname = 'WAERS'.
+    wa_fcat-tabname   = 'IT_EKPO'.
+    wa_fcat-seltext_l = 'BIRIM'.
+    APPEND wa_fcat TO it_fcat.
+    CLEAR wa_fcat.
+
+  ENDIF.
+ENDFORM.                    "field_catalog
+*&---------------------------------------------------------------------*
+*&      Form  alv_layout
+*&---------------------------------------------------------------------*
+*       ALV layout
+*----------------------------------------------------------------------*
+FORM alv_layout .
+
+  wa_layout-zebra             = 'X'. "Zebra
+  wa_layout-colwidth_optimize = 'X'. "Kolon optimize
+  wa_layout-expand_fieldname  = 'EXPAND'. "Expand operation
+  wa_layout-window_titlebar   = ' SAS Raporu '.
+
+ENDFORM.                    " alv_layout
+*&---------------------------------------------------------------------*
+*&      Form  key_info
+*&---------------------------------------------------------------------*
+*       Key information which is passed to ALV
+*----------------------------------------------------------------------*
+FORM key_info.
+
+  wa_key-header01 = 'LIFNR'. "Purchase Order number
+  wa_key-item01   = 'LIFNR'. "is the key for header & item table
+
+ENDFORM.                    "key_info
+*&---------------------------------------------------------------------*
+*&      Form  alv_hierseq_list_display
+*&---------------------------------------------------------------------*
+*       Calling the ALV Hierseq List Display
+*----------------------------------------------------------------------*
+FORM alv_hierseq_list_display .
+
+  IF it_fcat IS NOT INITIAL.
+
+    CALL FUNCTION 'REUSE_ALV_HIERSEQ_LIST_DISPLAY'
+      EXPORTING
+        i_callback_program = sy-repid
+        is_layout          = wa_layout
+        it_fieldcat        = it_fcat
+        i_tabname_header   = 'IT_EKKO'
+        i_tabname_item     = 'IT_EKPO'
+        is_keyinfo         = wa_key
+      TABLES
+        t_outtab_header    = it_ekko
+        t_outtab_item      = it_ekpo
+      EXCEPTIONS
+        program_error      = 1
+        OTHERS             = 2.
+
+    IF sy-subrc <> 0.
+      MESSAGE 'Internal Error' TYPE 'I'.
+    ENDIF.
+  ENDIF.
+
+ENDFORM.                    " alv_hierseq_list_display 
