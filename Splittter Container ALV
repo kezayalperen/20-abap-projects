@@ -1,0 +1,146 @@
+DATA: splitter1   TYPE REF TO cl_gui_splitter_container,
+      splitter2   TYPE REF TO cl_gui_splitter_container,
+      container   TYPE REF TO cl_gui_custom_container,
+      container_1 TYPE REF TO cl_gui_container,
+      container_2 TYPE REF TO cl_gui_container,
+      container_3 TYPE REF TO cl_gui_container,
+      grid1       TYPE REF TO cl_gui_alv_grid,
+      grid2       TYPE REF TO cl_gui_alv_grid,
+      grid3       TYPE REF TO cl_gui_alv_grid.
+
+DATA: gt_sflight_1 TYPE TABLE OF sflight,
+      gt_sflight_2 TYPE TABLE OF sflight,
+      gt_sflight_3 TYPE TABLE OF sflight,
+      g_container  TYPE scrfname  VALUE 'COONTAINER'.
+
+DATA: ok_code TYPE sy-UCOMM.
+
+SELECT * FROM sflight INTO TABLE gt_sflight_1.
+SELECT * FROM sflight INTO TABLE gt_sflight_2 UP TO 3 ROWS.
+SELECT * FROM sflight INTO TABLE gt_sflight_3 UP TO 2 ROWS.
+
+CALL SCREEN 1000.
+*&---------------------------------------------------------------------*
+*&      Module  STATUS_1000  OUTPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE STATUS_1000 OUTPUT.
+  SET PF-STATUS 'GUI_ST'.
+*  SET TITLEBAR 'xxx'.
+
+CREATE OBJECT container
+EXPORTING
+  container_name = 'COONTAINER'. "Screen deki isim
+
+CREATE OBJECT splitter1  "Ana container'ı 1 satır 2 sütüna ayırmak.
+EXPORTING
+  parent  = container
+  rows    = 1
+  columns = 2.
+
+CALL METHOD splitter1->GET_CONTAINER "1.satır 1.sütun için referans
+EXPORTING
+  row     = 1
+  column = 1
+  RECEIVING
+  container = container_1.
+
+CALL METHOD splitter1->GET_CONTAINER "1.satır 2.sütun için referans
+EXPORTING
+  row     = 1
+  column = 2
+  RECEIVING
+  container = container_2.
+
+
+  CREATE OBJECT splitter2
+  EXPORTING
+  parent    = container_2
+  rows       = 2
+  columns     = 1.
+
+  CALL METHOD splitter2->GET_CONTAINER
+  EXPORTING
+    row     = 1
+    column  = 1
+    RECEIVING
+    container = container_2.
+
+  CALL METHOD splitter2->GET_CONTAINER
+  EXPORTING
+    row     = 2
+    column  = 1
+    RECEIVING
+    container = container_3.
+
+  CREATE OBJECT container
+  EXPORTING
+    container_name = g_container.
+
+  CREATE OBJECT grid1
+  EXPORTING
+   i_parent = container_1.
+
+  CALL METHOD grid1->SET_TABLE_FOR_FIRST_DISPLAY
+  EXPORTING
+    i_structure_name = 'SFLIGHT'
+    CHANGING
+      it_outtab = gt_sflight_1.
+*
+  CREATE OBJECT container
+  EXPORTING
+    container_name = g_container.
+*
+  CREATE OBJECT grid2
+  EXPORTING
+    i_parent = container_2.
+*
+  CALL METHOD grid2->SET_TABLE_FOR_FIRST_DISPLAY
+  EXPORTING
+    i_structure_name = 'SFLIGHT'
+    CHANGING
+      it_outtab = gt_sflight_2.
+*
+  CREATE OBJECT container
+  EXPORTING
+    container_name = G_CONTAINER.
+
+  CREATE OBJECT grid3
+  EXPORTING
+    i_parent = container_3.
+
+  CALL METHOD grid3->SET_TABLE_FOR_FIRST_DISPLAY
+  EXPORTING
+    i_structure_name = 'SFLIGHT'
+    CHANGING
+      it_outtab = gt_sflight_3.
+
+ENDMODULE.                 " STATUS_1000  OUTPUT
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_1000  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE EXIT INPUT.
+CALL METHOD container->FREE.
+LEAVE PROGRAM.
+ENDMODULE.                 " USER_COMMAND_1000  INPUT
+
+
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_1000  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE USER_COMMAND_1000 INPUT.
+  CALL METHOD cl_gui_cfw=>DISPATCH.
+  CASE sy-UCOMM.
+   WHEN '&F03'.
+        LEAVE TO SCREEN 0.
+   WHEN '&F15'.
+        LEAVE TO SCREEN 0.
+   WHEN '&F12'.
+       LEAVE TO SCREEN 0.
+  ENDCASE.
+ENDMODULE.       
