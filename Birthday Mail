@@ -1,0 +1,165 @@
+TABLES : PA0001 , HRP1000 , PA0002 , PA0105 , zp1512_t019.
+ 
+" İLK VE SON DEĞER PARAMETRESİ İÇİN KULLANDIK.
+ SELECT-OPTIONS  s_pernr for PA0001-PERNR.
+ 
+" SİSTEM TARİHİNİN SON 4 HANESİNİ ALDIK ÇÜNKÜ TERSTEN YAZIYOR YYYY AA GG
+ DATA datum  TYPE string.
+ datum  = sy-datum+4(4).
+ 
+" LIKE İŞLEMİ YAPACAĞIM İÇİN CONCATENATE İLE BİRLEŞTİRDİM
+ CONCATENATE '%' datum INTO datum.
+ 
+TYPES : BEGIN OF ty_data,
+         PERNR TYPE PA0001-PERNR,
+         BEGDA TYPE PA0001-BEGDA,
+         ENDDA TYPE PA0001-ENDDA,
+         ORGEH TYPE PA0001-ORGEH,
+         STEXT TYPE HRP1000-STEXT,
+         OBJID TYPE HRP1000-OBJID,
+         GBDAT TYPE PA0002-GBDAT,
+         VORNA TYPE PA0002-VORNA,
+         USRID TYPE PA0105-USRID_LONG,
+  END OF ty_data.
+ 
+DATA gt_itab TYPE TABLE OF ty_data.
+ DATA gs_str  TYPE ty_data.
+ 
+SELECT  p1~Orgeh
+         p1~pernr
+         p1~endda
+         p1~begda
+         h1~OBJID
+         h1~stext
+         P2~GBDAT
+         P2~VORNA
+         p10~USRID
+       FROM pa0001 as p1
+       INNER JOIN hrp1000 as h1
+       ON p1~orgeh eq h1~objid
+       INNER JOIN pa0002  as p2
+       ON p1~pernr eq p2~pernr
+       INNER JOIN pa0105 as p10
+       ON p1~pernr eq p10~pernr
+       INTO CORRESPONDING FIELDS OF TABLE gt_itab
+            WHERE p1~pernr IN   s_pernr
+            AND   p1~begda LE   sy-datum
+            AND   p1~endda GE   sy-datum
+            AND   h1~langu EQ   'T'
+            AND   h1~plvar EQ   '01'.
+ *           AND   p2~gbdat LIKE  datum.                  " LIKE İLE DOĞUM GÜNÜ KARŞILAŞTIRMASI YAPTIM.
+ DELETE ADJACENT DUPLICATES FROM gt_itab COMPARING pernr. " İLK GİRİŞ DIŞINDA AYNI ALANA SAHİP GİRİŞLERİ SİLER.
+ 
+
+ TYPES : BEGIN OF ty_data2,
+         PERNR    TYPE PA0001-PERNR,
+         USRID  TYPE PA0105-USRID_LONG,
+         GBDAT TYPE PA0002-GBDAT,
+    END OF ty_data2.
+ 
+   DATA gs_str2 TYPE ty_data2.
+    DATA gt_itab2 TYPE TABLE OF ty_data2.
+ 
+   SELECT p1~PERNR
+           p15~USRID
+           p2~GBDAT
+    FROM pa0001 as p1
+    INNER JOIN pa0105 as p15
+    on p1~pernr eq p15~pernr
+    INNER JOIN pa0002 as p2
+    on p1~pernr eq p2~pernr
+    INTO CORRESPONDING FIELDS OF TABLE gt_itab2
+    WHERE p1~pernr IN   s_pernr
+    AND   p1~begda LE   sy-datum
+    AND   p1~endda GE   sy-datum.
+    DELETE ADJACENT DUPLICATES FROM gt_itab2 COMPARING pernr.
+ 
+LOOP AT gt_itab INTO gs_str2.
+   zp1512_t019-PERNR = gs_str2-PERNR.
+   zp1512_t019-USRID = gs_str2-USRID.
+   zp1512_t019-GBDAT = gs_str2-GBDAT.
+   INSERT zp1512_t019 FROM gs_str2.
+   IF sy-subrc is INITIAL.
+     MESSAGE 'KAYIT BAŞARILI' TYPE 'I'.
+     ELSE.
+       MESSAGE 'KAYIT GERÇEKLEŞMEDİ' TYPE 'E'.
+   ENDIF.
+ ENDLOOP.
+
+GÜZEL ÖRNEK
+
+  CONSTANTS:
+    gc_subject TYPE so_obj_des VALUE '',"dokuman baslıgı
+    gc_raw     TYPE char03 VALUE 'RAW'.
+
+  DATA:
+    gv_mlrec         TYPE so_obj_nam,
+    gv_sent_to_all   TYPE os_boolean,
+    gv_email         TYPE adr6-smtp_addr,
+    gv_subject       TYPE so_obj_des,
+    gv_text          TYPE bcsy_text,
+    gr_send_request  TYPE REF TO cl_bcs,
+    gr_bcs_exception TYPE REF TO cx_bcs,
+    gr_recipient     TYPE REF TO if_recipient_bcs,
+    gr_sender        TYPE REF TO cl_sapuser_bcs,
+    gr_document      TYPE REF TO cl_document_bcs.
+
+
+
+  TRY.
+      "Create send request
+      gr_send_request = cl_bcs=>create_persistent( ).
+
+
+      "Email FROM...
+      gr_sender = cl_sapuser_bcs=>create( sy-uname ).
+      "Add sender to send request
+      CALL METHOD gr_send_request->set_sender
+        EXPORTING
+          i_sender = gr_sender.
+
+
+      "Email TO...
+      gv_email = 'ertugrul.cinar@detaysoft.com'.
+      gr_recipient = cl_cam_address_bcs=>create_internet_address(
+gv_email ).
+      "Add recipient to send request
+      CALL METHOD gr_send_request->add_recipient
+        EXPORTING
+          i_recipient = gr_recipient
+          i_express   = 'X'.
+
+
+      "Email BODY
+      APPEND 'Hello world! My first ABAP email!' TO gv_text.
+      gr_document = cl_document_bcs=>create_document(
+                      i_type    = gc_raw
+                      i_text    = gv_text
+                      i_length  = '12'
+                      i_subject = gc_subject ).
+      "Add document to send request
+      CALL METHOD gr_send_request->set_document( gr_document ).
+
+
+      "Send email
+      CALL METHOD gr_send_request->send(
+        EXPORTING
+          i_with_error_screen = 'X'
+        RECEIVING
+          result              = gv_sent_to_all ).
+      IF gv_sent_to_all = 'X'.
+        WRITE 'Email sent!'.
+      ENDIF.
+
+      "Commit to send email
+      COMMIT WORK.
+
+
+      "Exception handling
+    CATCH cx_bcs INTO gr_bcs_exception.
+      WRITE:
+        'Error!',
+        'Error type:',
+              gr_bcs_exception->error_type.
+  ENDTRY. 
+
