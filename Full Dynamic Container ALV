@@ -1,0 +1,749 @@
+MAIN 
+
+*----------------------------------------------------------------------*
+*                                                                      *
+*                                                                      *
+* Developer : Alperen KEZAY P1512                                      *
+* Date      : 25.03.2019                                               *
+* Version   : 1.1                                                      *
+*                                                                      *
+*----------------------------------------------------------------------*
+* Description:                                                         *
+*                                                                      *
+* Hızlı Alv Basım Şablonu                                              *
+*                                                                      *
+*                                                                      *
+*----------------------------------------------------------------------*
+
+
+*----------------------------------------------------------------------*
+*                   U S E R  D A T A                                   *
+*                                                                      *
+*----------------------------------------------------------------------*
+DATA :
+" FCAT
+       i_sname       TYPE          dd02l-tabname
+                     VALUE         'ZP1512_S009'       ,
+       gt_fcat       TYPE          lvc_t_fcat          ,
+       gs_variant    TYPE          disvariant          ,
+       gs_layout     TYPE          lvc_s_layo          ,
+"CONTAINER
+       i_container   TYPE          char20
+                     VALUE         'GV_CON'            ,
+" SELECT
+       gs_itab       TYPE          zp1512_s009         ,
+       gt_itab       TYPE TABLE OF zp1512_s009         .
+
+*&---------------------------------------------------------------------*
+*&                     I N C L U D E S                                 *
+*&                                                                     *
+*&---------------------------------------------------------------------*
+INCLUDE zp1512_p090_i001.
+
+*&---------------------------------------------------------------------*
+*&                 I N I T I A L I Z A T I O N                         *
+*&                                                                     *
+*&---------------------------------------------------------------------*
+INITIALIZATION.
+
+*&---------------------------------------------------------------------*
+*&              S T A R T - O F - S E L E C T I O N                    *
+*&                                                                     *
+*&---------------------------------------------------------------------*
+START-OF-SELECTION.
+
+  SELECT * FROM lfa1
+           INTO CORRESPONDING FIELDS OF TABLE gt_itab
+           ORDER BY lifnr.
+
+
+  " Create Container ALV...
+*----------------------------------------------------------------------*
+  lcl_class=>start_process( EXPORTING i_structure_name  = i_sname
+                                      i_container_name  = i_container ).
+
+  " Change Field Catalog...
+*----------------------------------------------------------------------*
+*  lcl_class=>change_fcat( i_fieldname = i_fieldname
+*                          i_value     = i_value
+*                          i_target    = i_target ).
+
+  " Set Layout...
+*----------------------------------------------------------------------*
+  lcl_class=>create_layout( i_fieldname = 'ZEBRA'
+                            i_value     = 'X' ).
+
+
+  lcl_class=>create_layout( i_fieldname = 'CTAB_FNAME'
+                            i_value     = 'COLOR' ).
+
+  " Set Color...
+*----------------------------------------------------------------------*
+  LOOP AT gt_itab INTO gs_itab.
+
+    lcl_class=>set_color( EXPORTING i_c_fieldname  = 'NAME1'
+                                    i_color_colmn  = 'COLOR'
+                                    i_color        = '3'
+                          CHANGING  i_structure    = gs_itab    ).
+
+    MODIFY gt_itab FROM gs_itab.
+  ENDLOOP.
+
+*----------------------------------------------------------------------*
+
+*&---------------------------------------------------------------------*
+*&               E N D - O F - S E L E C T I O N                       *
+*&                                                                     *
+*&---------------------------------------------------------------------*
+END-OF-SELECTION.
+
+  " Display ALV...
+  lcl_class=>display_alv( CHANGING l_fcat    = gt_fcat
+                                   gs_layout = gs_layout
+                                   gt_itab   = gt_itab ).
+
+*&---------------------------------------------------------------------*
+*&                     C A L L   S C R E E N                           *
+*&                                                                     *
+*&---------------------------------------------------------------------*
+
+  CALL SCREEN 0100.
+
+*&---------------------------------------------------------------------*
+*&                        M O D U L E S                                *
+*&                                                                     *
+*&---------------------------------------------------------------------*
+
+*&---------------------------------------------------------------------*
+*&      M O D U L E    S T A T U S _ 0 1 0 0   O U T P U T             *
+*&                                                                     *
+*&---------------------------------------------------------------------*
+MODULE status_0100 OUTPUT.
+
+  SET PF-STATUS 'GUI'.   " GUI'NIZI BURAYA IMPORT EDECEKSINIZ.
+
+ENDMODULE.                 " STATUS_0100  OUTPUT
+
+*&---------------------------------------------------------------------*
+*&        M O D U L E    S T A T U S _ 0 1 0 0   I N P U T             *
+*&                                                                     *
+*&---------------------------------------------------------------------*
+MODULE user_command_0100 INPUT.
+
+  CASE sy-ucomm.
+    WHEN: '&F03' OR '&F12'.
+      LEAVE TO SCREEN 0.
+  ENDCASE.
+
+ENDMODULE.                 " USER_COMMAND_0100  INPUT 
+
+
+PERFORMS
+
+*&---------------------------------------------------------------------*
+*&                      P E R F O R M S                                *
+*&                                                                     *
+*&---------------------------------------------------------------------*
+
+*----------------------------------------------------------------------*
+*           F O R M   H A N D L E _ U S E R _ C O M M A N D            *
+*                                                                      *
+*                                                                      *
+* Öneriler :                                                           *
+* - Birden fazla buton kullanıyorsanız aynı case içinde                *
+* yönetebilirsiniz.                                                    *
+*                                                                      *
+*----------------------------------------------------------------------*
+
+FORM handle_user_command USING e_ucomm.
+
+  CASE e_ucomm.
+    WHEN 'FC01'.
+      MESSAGE : 'Butona Tıkladınız.' TYPE 'I'.
+  ENDCASE.
+
+ENDFORM.                    "handle_user_command
+*----------------------------------------------------------------------*
+*               F O R M    D O U B L E _ C L I C K                     *
+*                                                                      *
+*                                                                      *
+* Dikkat Edilmesi Gerekilen yerler :                                   *
+* - Eğer row veya column işlemleri yapacaksanız e_row e_column         *
+* - parametrelerini göndermek zorundasınız.                            *
+*----------------------------------------------------------------------*
+
+FORM double_click USING gt_itab e_row e_column es_row_no sender  .
+
+  MESSAGE : 'Double Click Çalıştı.' TYPE 'I'.
+
+ENDFORM.                    "double_click
+*----------------------------------------------------------------------*
+*              F O R M    C H A N G E _ A L V_ R O W S                 *
+*                                                                      *
+*                                                                      *
+* Mecbur Yapılması Gereken Şeyler :                                    *
+* - lvc_s_modi tipinde data tanımlanması gerekli her şey bu data       *
+* yürütülüyor.                                                         *
+*----------------------------------------------------------------------*
+
+FORM handle_data_changed USING rr_data_changed TYPE REF TO
+                        cl_alv_changed_data_protocol.
+
+  DATA: ls_mod_cells TYPE lvc_s_modi.
+  DATA: ls_cells TYPE lvc_s_modi,
+        l_rv0    LIKE pa0001-pernr.
+
+  LOOP AT rr_data_changed->mt_good_cells INTO ls_mod_cells.
+    CASE ls_mod_cells-fieldname.
+      WHEN 'LAND1'.
+        CALL METHOD rr_data_changed->get_cell_value
+          EXPORTING
+            i_row_id    = ls_mod_cells-row_id
+            i_fieldname = ls_mod_cells-fieldname
+          IMPORTING
+            e_value     = l_rv0.
+    ENDCASE.
+  ENDLOOP.
+ENDFORM.                    "handle_data_changed
+*&---------------------------------------------------------------------*
+*             F O R M     A D D _  T O O L B A R                       *
+*                                                                      *
+*                                                                      *
+* - ADD_TOOLBAR perfomunu çağırıp add_toolbar methodunu tetikliyoruz.  *
+*&---------------------------------------------------------------------*
+
+FORM add_toolbar USING p_e_object TYPE REF TO cl_alv_event_toolbar_set.
+
+  lcl_class=>add_toolbar(
+  EXPORTING icon = '@0R@' text = ' ' event = 'FC01'
+  CHANGING obj  = p_e_object->mt_toolbar ).
+
+ENDFORM.                    " ADD_TOOLBAR 
+
+
+INCLUDE
+
+*----------------------------------------------------------------------*
+*               D O      N O T     C H A N G E                         *
+*                                                                      *
+* Developer : Alperen KEZAY P1512                                      *
+* Date      : 25.03.2019                                               *
+* Version   : 1.1                                                      *
+*                                                                      *
+*----------------------------------------------------------------------*
+* Description:                                                         *
+*                                                                      *
+* Hızlı Alv Basım Şablonu                                              *
+*                                                                      *
+*                                                                      *
+*----------------------------------------------------------------------*
+
+
+*----------------------------------------------------------------------*
+*       C L A S S  L C L _ C L A S S   D E F I N I T I O N             *
+*                                                                      *
+*                                                                      *
+*----------------------------------------------------------------------*
+CLASS lcl_class DEFINITION.
+
+  PUBLIC SECTION.
+*----------------------------------------------------------------------*
+*                   C L A S S      D A T A                             *
+*                                                                      *
+*----------------------------------------------------------------------*
+
+    CLASS-DATA :
+" ALV için gerekli datalar
+     g_alv           TYPE REF TO  cl_gui_alv_grid              ,
+     g_cust          TYPE REF TO  cl_gui_custom_container      ,
+     obj_class       TYPE REF TO  lcl_class                    ,
+" HATA mesajı alınması için gerekli datalar
+     oref            TYPE REF TO  cx_root                      ,
+     text            TYPE         string                       ,
+" SET FOCUS için gerekli datalar
+     v_row           TYPE         lvc_s_row                    ,
+     v_column        TYPE         lvc_s_col                    ,
+     v_row_num       TYPE         lvc_s_roid                   ,
+" CHANGE FCAT için gerekli datalar
+     i_tabname       TYPE         slis_tabname                 ,
+     i_fieldname     TYPE         slis_tabname                 ,
+     i_value         TYPE         slis_tabname                 ,
+     i_target        TYPE         slis_tabname                 ,
+" ICON  için gerekli data
+     p_icon          TYPE         iconname                     ,
+" EXCLUDE için gerekli data
+     gt_excl         TYPE         ui_functions                 ,
+" BUTTON için gerekli data
+     p_funct         TYPE         sy-ucomm                     .
+
+*----------------------------------------------------------------------*
+*                   C L A S S      M E T H O D                         *
+*                                                                      *
+*----------------------------------------------------------------------*
+
+    CLASS-METHODS :
+
+     create_alv                                                 ,
+
+     create_fcat
+        IMPORTING i_structure_name TYPE dd02l-tabname  OPTIONAL
+                  variant          TYPE disvariant     OPTIONAL
+        EXPORTING l_fcat           TYPE lvc_t_fcat              ,
+
+     start_process
+        IMPORTING i_container_name TYPE any            OPTIONAL
+                  i_structure_name TYPE dd02l-tabname           ,
+
+     change_fcat
+        IMPORTING i_fieldname      TYPE slis_tabname   OPTIONAL
+                  i_value          TYPE slis_tabname   OPTIONAL ,
+
+     create_layout
+        IMPORTING i_fieldname      TYPE slis_tabname   OPTIONAL
+                  i_value          TYPE slis_tabname   OPTIONAL
+                  i_target         TYPE slis_tabname   OPTIONAL ,
+
+     create_exclude
+        IMPORTING gt_exclude       TYPE ui_functions   OPTIONAL ,
+
+     set_variant                                                ,
+
+     set_color
+        IMPORTING i_color_colmn    TYPE char30         OPTIONAL
+                  i_c_fieldname    TYPE char30         OPTIONAL
+                  i_color          TYPE char1          OPTIONAL
+        CHANGING  i_structure      TYPE any            OPTIONAL
+                  i_itab           TYPE any            OPTIONAL ,
+
+     add_toolbar
+        IMPORTING icon             TYPE icon-id        OPTIONAL
+                  text             TYPE any            OPTIONAL
+                  event            TYPE any            OPTIONAL
+        CHANGING  obj              TYPE ttb_button     OPTIONAL ,
+
+     set_focus                                                  ,
+
+     event_handler                                              ,
+
+     handle_user_command
+       FOR EVENT  user_command     OF   cl_gui_alv_grid
+       IMPORTING  e_ucomm                                       ,
+
+     handle_toolbar
+       FOR EVENT  toolbar          OF   cl_gui_alv_grid
+       IMPORTING  e_object
+                  e_interactive                                 ,
+
+     double_click
+       FOR EVENT  double_click     OF  cl_gui_alv_grid
+       IMPORTING  e_row
+                  e_column
+                  es_row_no
+                  sender                                        ,
+
+     handle_data_changed
+       FOR EVENT  data_changed     OF   cl_gui_alv_grid
+       IMPORTING  er_data_changed                               ,
+
+     display_alv
+        CHANGING  l_fcat           TYPE lvc_t_fcat     OPTIONAL
+                  gs_layout        TYPE lvc_s_layo     OPTIONAL
+                  gt_itab          TYPE ANY TABLE      OPTIONAL .
+
+ENDCLASS.                    "lcl_class DEFINITION
+*---------------------------------------------------------------------*
+*       C L A S S  L C L _ C L A S S  I M P L E M E N T A T I O N     *
+*                                                                     *
+*---------------------------------------------------------------------*
+
+CLASS lcl_class IMPLEMENTATION.
+
+  METHOD create_alv.
+
+    IF g_cust IS INITIAL.
+
+      TRY .
+          CREATE OBJECT g_cust
+            EXPORTING
+              container_name              = i_container
+            EXCEPTIONS
+              cntl_error                  = 1
+              cntl_system_error           = 2
+              create_error                = 3
+              lifetime_error              = 4
+              lifetime_dynpro_dynpro_link = 5
+              OTHERS                      = 6.
+        CATCH cx_root.
+          text = oref->get_longtext( ).
+          MESSAGE text TYPE 'S' DISPLAY LIKE 'E'.
+      ENDTRY.
+
+      TRY.
+          CREATE OBJECT g_alv TYPE cl_gui_alv_grid
+            EXPORTING
+              i_parent          = g_cust
+            EXCEPTIONS
+              error_cntl_create = 1
+              error_cntl_init   = 2
+              error_cntl_link   = 3
+              error_dp_create   = 4
+              OTHERS            = 5.
+
+        CATCH cx_root.
+          text = oref->get_longtext( ).
+          MESSAGE text TYPE 'E' DISPLAY LIKE 'I'.
+      ENDTRY.
+    ENDIF.
+  ENDMETHOD.                    "create_alv
+*----------------------------------------------------------------------*
+*               C H A N G E _ F C A T   M E T H O D                    *
+*                                                                      *
+*                                                                      *
+* - Create_fcat methodunda field catalog oluşturuluyor.                *
+*----------------------------------------------------------------------*
+
+  METHOD create_fcat.
+
+    CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+      EXPORTING
+        i_structure_name       = i_sname
+      CHANGING
+        ct_fieldcat            = l_fcat
+      EXCEPTIONS
+        inconsistent_interface = 1
+        program_error          = 2.
+
+  ENDMETHOD.                    "create_fcat
+*----------------------------------------------------------------------*
+*               S T A R T _ P R O C E S S   M E T H O D                *
+*                                                                      *
+*                                                                      *
+* - Start_process methodunda kullanıcının içeriye müdahale edemediği   *
+* methodlar burada tetikleniyor.                                       *
+*----------------------------------------------------------------------*
+
+  METHOD start_process.
+
+
+"Create Container...
+    lcl_class=>create_alv( ).
+
+"Create Fcat...
+    lcl_class=>create_fcat(
+      EXPORTING i_structure_name = i_sname
+                variant          = gs_variant
+      IMPORTING l_fcat           = gt_fcat ).
+
+"Display Alv Button...
+    lcl_class=>create_exclude( gt_exclude  = gt_excl  ).
+
+"Set Variant...
+    lcl_class=>set_variant( ).
+
+"Set Focus...
+    lcl_class=>set_focus( ).
+
+"Alv Event Handler..
+    lcl_class=>event_handler( ).
+
+  ENDMETHOD.                    "start_process
+*----------------------------------------------------------------------*
+*                  C H A N G E _ F C A T   M E T H O D                 *
+*                                                                      *
+*                                                                      *
+* - Change_fcat methodunda fieldcat e ekleme veya değişiklik yapılıyor *
+*----------------------------------------------------------------------*
+
+  METHOD change_fcat.
+
+    DATA: li_field  TYPE STANDARD TABLE OF slis_fieldname,
+          li_f      TYPE slis_fieldname,
+          li_value  TYPE STANDARD TABLE OF slis_fieldname,
+          li_v      TYPE slis_fieldname.
+
+    FIELD-SYMBOLS: <f1> TYPE any.
+    FIELD-SYMBOLS: <fcat> LIKE LINE OF gt_fcat.
+
+    SPLIT i_fieldname   AT '/' INTO TABLE li_field.
+
+    LOOP AT li_field INTO li_f.
+
+      READ TABLE gt_fcat ASSIGNING <fcat>
+            WITH KEY  fieldname = li_f.
+      IF sy-subrc = 0
+     AND <fcat> IS ASSIGNED.
+        LOOP AT li_value INTO li_v.
+          <f1> = i_value.
+        ENDLOOP.
+        UNASSIGN <fcat>.
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.                    "list_set_attribute
+*----------------------------------------------------------------------*
+*            C R E A T E _ E X C L U D E   M E T H O D                 *
+*                                                                      *
+*                                                                      *
+* - Create_exclude methodunda çoğunlukla kullanılan excludelar default *
+* olarak ALV de hazır olarak geliyor.                                  *
+*----------------------------------------------------------------------*
+
+  METHOD create_exclude.
+
+    DATA ls_exclude TYPE ui_func.
+    ls_exclude = cl_gui_alv_grid=>mc_fc_loc_copy_row.
+    APPEND ls_exclude TO gt_excl .
+    ls_exclude = cl_gui_alv_grid=>mc_fc_loc_delete_row.
+    APPEND ls_exclude TO gt_excl.
+    ls_exclude = cl_gui_alv_grid=>mc_fc_loc_append_row.
+    APPEND ls_exclude TO gt_excl.
+    ls_exclude = cl_gui_alv_grid=>mc_fc_loc_insert_row.
+    APPEND ls_exclude TO gt_excl.
+    ls_exclude = cl_gui_alv_grid=>mc_fc_loc_move_row.
+    APPEND ls_exclude TO gt_excl.
+
+  ENDMETHOD.                    "create_exclude
+*----------------------------------------------------------------------*
+*               S E T _ V A R I A N T    M E T H O D                   *
+*                                                                      *
+*                                                                      *
+* - Variant default olarak sy-repid ile şekillenir.                    *
+*----------------------------------------------------------------------*
+  METHOD set_variant.
+
+    gs_variant-report = sy-repid.
+
+  ENDMETHOD.                    "set_variant
+*----------------------------------------------------------------------*
+*                  S E T _ C O L O R   M E T H O D                     *
+*                                                                      *
+*                                                                      *
+* - Set_color methodunda istediğiniz alana istediğiniz renk kodunu     *
+* parametre olarak girebilirsiniz.                                     *
+* - Birden fazla alanı renklendirmek isterseniz methodu birden fazla   *
+* tetikleyebilirsiniz.                                                 *
+* - Bir şarta göre renklendirmek istiyorsanız IF in içinde methodu     *
+* tetikleyin.                                                          *
+*----------------------------------------------------------------------*
+
+  METHOD set_color.
+
+    FIELD-SYMBOLS : <fs>       TYPE any.
+    FIELD-SYMBOLS : <ta_color> TYPE table.
+    FIELD-SYMBOLS : <fs_strc>  TYPE any.
+    FIELD-SYMBOLS : <fs_itab>  TYPE table.
+    FIELD-SYMBOLS : <fs_str>   TYPE any.
+
+    DATA : field(15) TYPE c,
+           col       TYPE lvc_s_scol.
+
+    ASSIGN i_structure TO <fs_strc>.
+
+    col-fname     = i_c_fieldname.
+    col-color-col = i_color .
+    ASSIGN COMPONENT i_color_colmn OF STRUCTURE <fs_strc> TO <ta_color>.
+    APPEND col TO <ta_color> .
+
+  ENDMETHOD.                    "set_color
+*----------------------------------------------------------------------*
+*              C R E A T E _ L A Y O U T   M E T H O D                 *
+*                                                                      *
+*                                                                      *
+* - Layouta eklemek istediğiniz işlemleri parametre olarak yollayıp    *
+* valuesuna 'X' değerini yolladıktan sonra otomatikmen çalışacaktır.   *
+* - Birden fazla layout devreye sokmak isterseniz methodu birden fazla *
+* tetikleyebilirsiniz.                                                 *
+*----------------------------------------------------------------------*
+
+  METHOD create_layout.
+
+    DATA:  li_field  TYPE STANDARD TABLE OF slis_fieldname,
+           li_f      TYPE slis_fieldname,
+           li_value  TYPE STANDARD TABLE OF slis_fieldname,
+           li_v      TYPE slis_fieldname.
+
+
+    FIELD-SYMBOLS: <f1> TYPE any.
+    FIELD-SYMBOLS: <layout> LIKE gs_layout.
+
+    SPLIT i_fieldname   AT '/' INTO TABLE li_field.
+    SPLIT i_value       AT '/' INTO TABLE li_value.
+
+    LOOP AT li_field INTO li_f.
+
+      ASSIGN gs_layout TO <layout>.
+
+      IF sy-subrc = 0
+     AND <layout> IS ASSIGNED.
+        LOOP AT li_value INTO li_v.
+          ASSIGN COMPONENT i_fieldname OF STRUCTURE <layout> TO <f1>.
+          <f1> = i_value.
+        ENDLOOP.
+        UNASSIGN <layout>.
+      ENDIF.
+    ENDLOOP.
+
+
+  ENDMETHOD.                    "create_layout
+*----------------------------------------------------------------------*
+*                 A D D   T O O L B A R   M E T H O D                  *
+*                                                                      *
+*                                                                      *
+* - Birden fazla button ekleyebilirsiniz.                              *
+* - Methodu birden fazla tetikleyiniz                                  *
+* - Button methodu full dynamictir istediğiniz icon vs. alanları       *
+* parametre olarak yollayıp buttonu şekillendirebilirsiniz.            *
+*----------------------------------------------------------------------*
+
+  METHOD add_toolbar.
+
+    DATA: ls_toolbar TYPE stb_button.
+    CLEAR ls_toolbar.
+
+    MOVE 3 TO ls_toolbar-butn_type.
+    APPEND ls_toolbar TO obj.
+
+    CLEAR ls_toolbar.
+    ls_toolbar-function =  event.
+    ls_toolbar-icon     =  icon.
+    ls_toolbar-text     = ls_toolbar-quickinfo = text.
+    CLEAR ls_toolbar-disabled.
+    APPEND ls_toolbar TO obj.
+
+  ENDMETHOD.                    "add_toolbar
+*----------------------------------------------------------------------*
+*             E V E N T   H A N D L E R   M E T H O D                  *
+*                                                                      *
+*                                                                      *
+* - Event handler methodlar burada tetikleniyor.                       *
+*----------------------------------------------------------------------*
+  METHOD event_handler.
+
+    CREATE OBJECT obj_class.
+
+    SET HANDLER double_click                   FOR g_alv.
+    SET HANDLER handle_data_changed            FOR g_alv.
+    SET HANDLER obj_class->handle_user_command FOR g_alv.
+    SET HANDLER obj_class->handle_user_command FOR g_alv.
+    SET HANDLER obj_class->handle_toolbar      FOR g_alv.
+
+  ENDMETHOD.                    "event_handler
+*----------------------------------------------------------------------*
+*                      S E T _ F O C U S  M E T H O D                  *
+*                                                                      *
+*                                                                      *
+* - Set_focus methodu ototmatikmen alv basılınca direk ilk alana       *
+* focuslu hale getirir.                                                *
+*----------------------------------------------------------------------*
+
+  METHOD set_focus.
+
+    TRY.
+        CALL METHOD cl_gui_alv_grid=>set_focus
+          EXPORTING
+            control           = g_alv
+          EXCEPTIONS
+            cntl_error        = 1
+            cntl_system_error = 2
+            OTHERS            = 3.
+
+      CATCH cx_root.
+
+        text = oref->get_longtext( ).
+        MESSAGE text TYPE 'S' DISPLAY LIKE 'E'.
+
+    ENDTRY.
+  ENDMETHOD.                    "set_focus
+*----------------------------------------------------------------------*
+*               H A N D L E _ T O O L B A R   M E T H O D              *
+*                                                                      *
+*                                                                      *
+* - Add_toolbar performu burada çağırılıyor.                           *
+*----------------------------------------------------------------------*
+
+  METHOD handle_toolbar.
+
+    PERFORM add_toolbar USING  e_object.
+
+  ENDMETHOD.                    "handle_toolbar
+*----------------------------------------------------------------------*
+*          H A N D L E _ U S  E R _ C O M M A N D  M E T H O D         *
+*                                                                      *
+*                                                                      *
+* - Buttona işlev burada veriliyor.                                    *
+*----------------------------------------------------------------------*
+
+  METHOD handle_user_command.
+
+    p_funct = e_ucomm.
+
+    CASE e_ucomm.
+      WHEN '&F03' OR '&F12'.
+        LEAVE TO SCREEN 0.
+      WHEN p_funct.
+        PERFORM handle_user_command USING e_ucomm.
+    ENDCASE.
+
+  ENDMETHOD.                    "handle_user_command
+*----------------------------------------------------------------------*
+*             D O U B L E _ C L I C K   M E T H O D                    *
+*                                                                      *
+*                                                                      *
+*- Double_click performu burada tetikleniyor ve burada devreye giriyor *
+* double click işleminde nelerin olacağını performda belirtin.         *
+*----------------------------------------------------------------------*
+
+  METHOD double_click.
+
+    PERFORM double_click USING gt_itab e_row e_column es_row_no sender.
+
+    CALL METHOD g_alv->set_current_cell_via_id
+      EXPORTING
+        is_row_no = es_row_no.
+
+    CALL METHOD g_alv->register_edit_event
+      EXPORTING
+        i_event_id = cl_gui_alv_grid=>mc_evt_modified.
+
+    CALL METHOD g_alv->refresh_table_display.
+
+  ENDMETHOD.                    "double_click
+*----------------------------------------------------------------------*
+*        H A N D L E _ D A T A  _ C H A N G E D   M E T H O D          *
+*                                                                      *
+*                                                                      *
+*- Data_changed performu burada tetikleniyor ve burada devreye giriyor *
+* Data changed işleminde nelerin olacağını performda belirtin.         *
+*----------------------------------------------------------------------*
+  METHOD handle_data_changed.
+
+    PERFORM handle_data_changed USING er_data_changed .
+
+  ENDMETHOD.                    "handle_data_changed
+*----------------------------------------------------------------------*
+*              D I S P L A Y _ A L V    M E T H O D                    *
+*                                                                      *
+*                                                                      *
+* - Bu methodda ALV görüntüleniyor.                                    *
+*----------------------------------------------------------------------*
+  METHOD display_alv.
+
+    TRY.
+        CALL METHOD g_alv->set_table_for_first_display
+          EXPORTING
+            is_layout                     = gs_layout
+          CHANGING
+            it_outtab                     = gt_itab
+            it_fieldcatalog               = l_fcat
+          EXCEPTIONS
+            invalid_parameter_combination = 1
+            program_error                 = 2
+            too_many_lines                = 3
+            OTHERS                        = 4.
+
+      CATCH cx_root.
+        text = oref->get_longtext( ).
+        MESSAGE text TYPE 'S' DISPLAY LIKE 'E'.
+    ENDTRY.
+  ENDMETHOD.                    "display_alv
+ENDCLASS.                    "lcl_class IMPLEMENTATION 
+
