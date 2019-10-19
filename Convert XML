@@ -1,0 +1,240 @@
+tables sscrfields.
+TYPE-POOLS : SLis.
+ 
+ 
+TYPES: BEGIN OF ty_itab,
+  pernr TYPE pa2001-pernr,"PersonelNumarası
+  begda TYPE pa2001-begda,"Başlanıç Tarihi
+  endda TYPE pa2001-endda,"Bitiş tarihi
+  subty TYPE pa2001-subty,"Alt Tip
+  beguz TYPE pa2001-beguz,"Başlangıç Saati
+  enduz TYPE pa2001-enduz,"Bitiş Saati
+  message(60)            ,"Geri Dönen Mesajlar
+  icon(4)                ,
+   mark                  ,
+ 
+  END OF ty_itab.
+ 
+data:    gs_itab          TYPE           ty_itab,
+         gt_itab          TYPE TABLE OF  ty_itab,
+         GS_P2001         TYPE           P2001,
+         GT_P2001         TYPE TABLE OF  P2001,
+         return           type           bapireturn1,
+         bararili(4)      TYPE c VALUE   '@5B@',"Kayıt başarılı ise
+         basarisiz(4) TYPE c VALUE       '@5C@'."Kayıt başarısız ise
+ 
+ 
+ 
+SELECTION-SCREEN :  BEGIN OF BLOCK ss WITH FRAME TITLE text-001.
+PARAMETERS : P_FILE LIKE ibipparms-path OBLIGATORY.
+SELECTION-SCREEN :  END OF BLOCK ss.
+ 
+ 
+*&---------------------------------------------------------------------*
+*& Include          ZEKPA_P044_I002
+*&---------------------------------------------------------------------*
+ 
+ 
+CLASS lc_main DEFINITION.
+  PUBLIC SECTION.
+  METHODS:
+        open_file         ,
+        file_upload       ,
+        set_merge         ,
+        set_layout        ,
+        alv_display       ,
+        insert_batch      .
+PRIVATE SECTION.
+ 
+  data :
+         gs_layout    TYPE slis_layout_alv,
+         ls_filetable type file_table,
+         gt_fcat      type slis_t_fieldcat_alv,
+         gs_fcat      type slis_fieldcat_alv,
+         lv_filename  type rlgrap-filename.
+  ENDCLASS.
+ 
+ 
+  CLASS lc_main IMPLEMENTATION.
+METHOD open_file.
+      CALL FUNCTION 'F4_FILENAME'
+    EXPORTING
+      field_name = 'P_FILE'
+    IMPORTING
+      file_name  = P_FILE.
+ 
+      ENDMETHOD.
+      METHOD file_upload.
+        DATA:v_file TYPE rlgrap-filename,
+           raw TYPE truxs_t_text_data.
+        move: ls_filetable-filename to lv_filename,
+              P_FILE TO v_file.
+ 
+       CALL FUNCTION 'TEXT_CONVERT_XLS_TO_SAP'
+        EXPORTING
+*        I_FIELD_SEPERATOR          =
+         I_LINE_HEADER              = 'X'
+         i_tab_raw_data             = raw
+         i_filename                 = v_file
+        TABLES
+         i_tab_converted_data       = gt_itab
+        EXCEPTIONS
+         CONVERSION_FAILED          = 1
+        OTHERS                     = 2.
+        IF sy-subrc  0.
+         MESSAGE 'Excel okunamadı dosya açık kalmış olabilir' TYPE 'I'.
+        ENDIF.
+ 
+        set_merge( ).
+ENDMETHOD.
+ 
+ 
+METHOD set_merge.
+      CALL FUNCTION 'REUSE_ALV_FIELDCATALOG_MERGE'
+       EXPORTING
+         I_PROGRAM_NAME               = sy-repid
+*         I_INTERNAL_TABNAME           = 'GT_ITAB'
+         I_STRUCTURE_NAME             = 'ZP1351_S002'
+         I_INCLNAME                   = sy-repid
+        CHANGING
+          ct_fieldcat                  = gt_fcat[]
+       EXCEPTIONS
+         INCONSISTENT_INTERFACE       = 1
+         PROGRAM_ERROR                = 2
+         OTHERS                       = 3.
+ 
+       "message alanı alv ekleme
+         gs_fcat-fieldname  = 'MESSAGE'.
+         gs_fcat-datatype = 'CHAR'.
+         gs_fcat-intlen = 40.
+         gs_fcat-inttype = 'C'.
+         gs_fcat-seltext_m = 'Mess'.
+         gs_fcat-seltext_l = 'Messag'.
+         gs_fcat-seltext_s = 'Mesaage'.
+         APPEND gs_fcat to gt_fcat.
+ 
+ 
+         "icon alv ekleme
+         gs_fcat-fieldname = 'ICON'.
+         gs_fcat-datatype = 'CHAR'.
+         gs_fcat-intlen   = 4.
+         gs_fcat-inttype  = 'C'.
+         gs_fcat-seltext_m = 'Dur'.
+         gs_fcat-seltext_l = 'Durum'.
+         gs_fcat-seltext_s = 'Du'.
+         APPEND gs_fcat to gt_fcat.
+ 
+         "mark alv ekleme
+         gs_fcat-fieldname = 'MARK'.
+         APPEND GS_fcat to gt_fcat.
+ 
+       LOOP AT gt_fcat INTO gs_fcat.
+         IF gs_fcat-fieldname = 'MARK'.
+           gs_fcat-no_out = 'X'.
+         ENDIF.
+         MODIFY gt_fcat FROM gs_fcat.
+           ENDLOOP.
+           set_layout( ).
+ 
+ 
+ 
+ 
+ENDMETHOD.
+ 
+METHOD set_layout.
+   gs_layout-zebra = 'X'.
+   gs_layout-box_fieldname = 'MARK'.
+   gs_layout-colwidth_optimize = 'X'.
+   alv_display( ).
+ENDMETHOD.
+METHOD alv_display.
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+   EXPORTING
+    I_CALLBACK_PROGRAM                = sy-repid
+    I_CALLBACK_PF_STATUS_SET          = 'GUI'
+    I_CALLBACK_USER_COMMAND           = 'USER_COMMAND'
+    IS_LAYOUT                         = gs_layout
+    IT_FIELDCAT                       = gt_fcat[]
+  TABLES
+    t_outtab                          = gt_itab
+  EXCEPTIONS
+    PROGRAM_ERROR                     = 1
+  OTHERS                            = 2.
+ENDMETHOD.
+METHOD insert_batch.
+ loop at gt_itab into gs_itab WHERE mark = 'X'.
+  gs_p2001-pernr = gs_itab-pernr.
+  gs_p2001-begda = gs_itab-begda.
+  gs_p2001-endda = gs_itab-endda.
+  gs_p2001-subty = gs_itab-subty.
+  gs_p2001-infty = '2001'.
+  gs_p2001-beguz = gs_itab-beguz.
+  gs_p2001-enduz = gs_itab-enduz.
+ 
+ 
+  call function 'HR_EMPLOYEE_ENQUEUE'
+    exporting
+     number = gs_itab-pernr.
+  call function 'HR_INFOTYPE_OPERATION'
+    exporting
+     infty         = gs_p2001-infty
+     number        = gs_p2001-pernr
+     subtype       = gs_p2001-subty
+     validityend   = gs_p2001-endda
+     validitybegin = gs_p2001-begda
+     record        = gs_p2001
+     operation     = 'INS'
+     dialog_mode   = '2'
+*                  tclas         = 'A'
+    importing
+     return        = return.
+   call function 'HR_EMPLOYEE_DEQUEUE'
+    exporting
+     number = gs_itab-pernr.
+ 
+   IF return is INITIAL.
+      gs_itab-message = 'Kayıt Başarılı' .
+      gs_itab-icon = bararili.
+   ELSEif return IS NOT INITIAL.
+      gs_itab-message = return-message.
+      gs_itab-icon = basarisiz.
+   ENDIF.
+   MODIFY gt_itab from gs_itab.
+  endloop.
+  alv_display( ).
+ENDMETHOD.
+ 
+ENDCLASS.
+data:object TYPE REF TO lc_main."Nesne tanımlama
+ 
+    FORM user_command USING c_xpa1 LIKE sy-ucomm
+                            c_xpa2 TYPE slis_selfield.
+  CASE c_xpa1 .
+    WHEN '&F03' OR 'F12'.
+      LEAVE TO SCREEN 0 .
+    WHEN '&AKTAR'.
+ 
+      object-insert_batch( ) .
+      c_xpa2-refresh = 'X'.
+    WHEN 'EXIT'.
+      LEAVE TO SCREEN 0 .
+  ENDCASE.
+ENDFORM.
+ 
+FORM GUI  using rt_extab type slis_t_extab .          "#EC *
+  set pf-status 'GUI01'.
+ 
+ENDFORM.
+ 
+*&---------------------------------------------------------------------*
+*& Include          ZEKPA_P044_I003
+*&---------------------------------------------------------------------*
+AT SELECTION-SCREEN on VALUE-REQUEST FOR P_FILE.
+  CREATE OBJECT object.
+  object-open_file(  ).
+ 
+START-OF-SELECTION.
+object-file_upload( ).
+ 
+ 
+C:\Users\Zeyo\Desktop\excels.xls
