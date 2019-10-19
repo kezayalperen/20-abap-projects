@@ -1,0 +1,146 @@
+   
+" Datas for FCAT...
+
+DATA : it_fcat    TYPE lvc_t_fcat           ,
+       gt_fcat    TYPE slis_t_fieldcat_alv  ,
+       gs_fcat    TYPE slis_fieldcat_alv    ,
+       it_fcat2   TYPE lvc_t_fcat           ,
+       gt_fcat2   TYPE slis_t_fieldcat_alv  ,
+       gs_fcat2   TYPE slis_fieldcat_alv    .
+
+" Fieldsymbols...
+
+FIELD-SYMBOLS:
+       <fs_fcat>  LIKE gs_fcat              ,
+       <fs_itab>  TYPE ANY TABLE            ,
+       <fs_data>  TYPE any                  ,
+       <fs_fcat2> LIKE gs_fcat              ,
+       <fs_itab2> TYPE ANY TABLE            ,
+       <fs_data2> TYPE any                  .
+
+" Datas for Dynamic tables...
+
+DATA: gs_flname(6)                          ,
+      gs_colno(2) TYPE n                    ,
+      gt_table    TYPE REF TO data          ,
+      gt_table2   TYPE REF TO data          . 
+
+
+ " First Screen Fcat…
+
+    ASSIGN gs_fcat TO <fs_fcat>.
+    <fs_fcat>-fieldname       = 'KISI'             .
+    <fs_fcat>-ref_fieldname   = 'KISI'             .
+    <fs_fcat>-ref_tabname     = 'ZP1512_T0100'     .
+    <fs_fcat>-seltext_l       = 'FATURA NUMARASI'  .
+    <fs_fcat>-seltext_s       = 'FAT NO.'          .
+    APPEND <fs_fcat> TO gt_fcat.
+
+    <fs_fcat>-fieldname       = 'TUTAR'            .
+    <fs_fcat>-ref_fieldname   = 'TUTAR'            .
+    <fs_fcat>-ref_tabname     = 'ZP1512_T0100'     .
+    <fs_fcat>-seltext_l       = 'MAAŞ'             .
+    <fs_fcat>-seltext_s       = 'MAAŞ'             .
+    APPEND <fs_fcat> TO gt_fcat.
+
+    <fs_fcat>-fieldname       = 'MIKTAR'           .
+    <fs_fcat>-ref_fieldname   = 'MIKTAR'           .
+    <fs_fcat>-ref_tabname     = 'ZP1512_T0100'     .
+    <fs_fcat>-seltext_l       = 'MİKTAR'           .
+    <fs_fcat>-seltext_s       = 'MİKTAR'           .
+    APPEND <fs_fcat> TO gt_fcat.
+
+    <fs_fcat>-fieldname       = 'AY'               .
+    <fs_fcat>-ref_fieldname   = 'AY'               .
+    <fs_fcat>-ref_tabname     = 'ZP1512_T0100'     .
+    <fs_fcat>-seltext_l       = 'AY'               .
+    <fs_fcat>-seltext_s       = 'AY'               .
+    APPEND <fs_fcat> TO gt_fcat.
+
+    DO p_col TIMES.
+      CLEAR <fs_fcat>.
+      MOVE SY-INDEX TO GS_COLNO.
+      CONCATENATE GS_COLNO '.AY' INTO GS_FLNAME    .
+      <FS_FCAT>-FIELDNAME     = GS_FLNAME          .
+      <FS_FCAT>-DATATYPE      = 'CURR'             .
+      <FS_FCAT>-INTLEN        = 13                 .
+      <FS_FCAT>-REF_FIELDNAME = 'BET01'            .
+      <FS_FCAT>-REF_TABNAME   = 'PA0008'           .
+      <FS_FCAT>-SELTEXT_L     = 'AY'.
+      <FS_FCAT>-SELTEXT_S     = 'AY'            .
+      APPEND <FS_FCAT> TO GT_FCAT.
+    ENDDO.
+
+    CALL FUNCTION 'LVC_TRANSFER_FROM_SLIS'
+      EXPORTING
+        it_fieldcat_alv = gt_fcat
+      IMPORTING
+        et_fieldcat_lvc = it_fcat
+      TABLES
+        it_data         = gt_fcat
+      EXCEPTIONS
+        it_data_missing = 1
+        OTHERS          = 2.
+
+    CALL METHOD cl_alv_table_create=>create_dynamic_table
+      EXPORTING
+        it_fieldcatalog = it_fcat
+      IMPORTING
+        ep_table        = gt_table.
+
+    ASSIGN gt_table->* TO <fs_itab>.
+
+    " Second Screen Fcat...
+
+    ASSIGN gs_fcat2 TO <fs_fcat2>.
+    <fs_fcat2>-fieldname       = 'KISI'             .
+    <fs_fcat2>-ref_tabname     = 'ZP1512_T0101'     .
+    <fs_fcat2>-seltext_l       = 'FATURA NUMARASI'  .
+    APPEND <fs_fcat2> TO gt_fcat2.
+
+    <fs_fcat2>-fieldname       = 'TUTAR'            .
+    <fs_fcat2>-ref_fieldname   = 'TUTAR'            .
+    <fs_fcat2>-ref_tabname     = 'ZP1512_T0101'     .
+    <fs_fcat2>-seltext_l       = 'MAAŞ'             .
+    <fs_fcat2>-seltext_s       = 'MAAŞ'             .
+    APPEND <fs_fcat2> TO gt_fcat2.
+
+    <fs_fcat2>-fieldname       = 'AY'               .
+    <fs_fcat2>-ref_fieldname   = 'AY'               .
+    <fs_fcat2>-ref_tabname     = 'ZP1512_T0101'     .
+    <fs_fcat2>-seltext_l       = 'AY'               .
+    <fs_fcat2>-seltext_s       = 'AY'               .
+    APPEND <fs_fcat2> TO gt_fcat2.
+
+    DO p_col TIMES.
+      CLEAR <fs_fcat2>.
+      MOVE sy-index TO gs_colno.
+      CONCATENATE GS_COLNO '.AY' INTO GS_FLNAME    .
+      <FS_FCAT>-FIELDNAME     = GS_FLNAME          .
+      <FS_FCAT>-DATATYPE      = 'CURR'             .
+      <FS_FCAT>-INTLEN        = 13                 .
+      <FS_FCAT>-REF_FIELDNAME = 'BET01'            .
+      <FS_FCAT>-REF_TABNAME   = 'PA0008'           .
+      <FS_FCAT>-SELTEXT_L     = 'AY'               .
+      <FS_FCAT>-SELTEXT_S     = 'AY'               .
+      APPEND <FS_FCAT> TO GT_FCAT.
+    ENDDO.
+
+    CALL FUNCTION 'LVC_TRANSFER_FROM_SLIS'
+      EXPORTING
+        it_fieldcat_alv = gt_fcat2
+      IMPORTING
+        et_fieldcat_lvc = it_fcat2
+      TABLES
+        it_data         = gt_fcat2
+      EXCEPTIONS
+        it_data_missing = 1
+        OTHERS          = 2.
+
+    CALL METHOD cl_alv_table_create=>create_dynamic_table
+      EXPORTING
+        it_fieldcatalog = it_fcat2
+      IMPORTING
+        ep_table        = gt_table2.
+
+    ASSIGN gt_table2->* TO <fs_itab2>.
