@@ -1,0 +1,204 @@
+TYPES: BEGIN OF ty_data,
+        superfield TYPE  ekko-lifnr , " Satıcı
+        ekorg      TYPE  ekko-ekorg , " SA Organizasyonu
+        ekgrp      TYPE  ekko-ekgrp , " SA Grubu
+        bukrs      TYPE  ekko-bukrs , " Şirket Kodu
+        ematn      TYPE  ekpo-matnr , " Malzeme
+        menge      TYPE  ekpo-menge , " SAS Miktarı
+        netpr      TYPE  ekpo-netpr , " Para Miktarı
+        waers      TYPE  ekko-waers , " Para Birimi
+        name1      TYPE  ekpo-werks , " Üretim Yeri
+        lgobe      TYPE  ekpo-lgort , " Depo Yeri
+       END OF ty_data.
+
+
+CONSTANTS: c_x     VALUE 'X'.
+
+DATA: gt_out       TYPE TABLE OF ty_data                          .
+DATA: gs_out       TYPE          ty_data                          .
+DATA: del_date     TYPE          sy-datum                         .
+DATA: pohead       TYPE TABLE OF bapimepoheader   WITH HEADER LINE.
+DATA: poheadx      TYPE TABLE OF bapimepoheaderx  WITH HEADER LINE.
+DATA: exp_head     TYPE          bapimepoheader                   .
+DATA: return       TYPE TABLE OF bapiret2         WITH HEADER LINE.
+DATA: poitem       TYPE TABLE OF bapimepoitem     WITH HEADER LINE.
+DATA: poitemx      TYPE TABLE OF bapimepoitemx    WITH HEADER LINE.
+DATA: posched      TYPE TABLE OF bapimeposchedule WITH HEADER LINE.
+DATA: poschedx     TYPE TABLE OF bapimeposchedulx WITH HEADER LINE.
+DATA: ex_po_number TYPE          bapimepoheader-po_number         .
+DATA: it_raw       TYPE          truxs_t_text_data                .
+DATA: li_filetable TYPE          filetable                        ,
+      ls_filetable TYPE          file_table                       ,
+      lv_return    TYPE          i                                .
+DATA: lv_fname     TYPE          rlgrap-filename                  .
+DATA: gt_data      TYPE TABLE OF ty_data                          ,
+      gs_data      LIKE LINE  OF gt_data                          ,
+      it_bdcdata   TYPE TABLE OF bdcdata                          ,
+      wa_bdcdata   TYPE          bdcdata                          ,
+      filename     TYPE          string                           .
+
+
+DATA: xl_itab      TYPE alsmex_tabline OCCURS 0 WITH HEADER LINE.
+
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE text-001      .
+
+PARAMETERS : filenam LIKE rlgrap-filename
+DEFAULT 'C:\Users\Zeyo\Desktop\x.xlsx'                            .
+
+SELECTION-SCREEN END OF BLOCK b1                                  .
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR filenam.
+
+START-OF-SELECTION.
+
+  CALL FUNCTION 'F4_FILENAME'
+    EXPORTING
+      program_name  = syst-cprog
+      dynpro_number = syst-dynnr
+      field_name    = ' '
+    IMPORTING
+      file_name     = filenam.
+
+  MOVE filename TO filename.
+
+
+  CALL FUNCTION 'ALSM_EXCEL_TO_INTERNAL_TABLE'
+    EXPORTING
+      filename                = filenam
+      i_begin_col             = 1
+      i_begin_row             = 1
+      i_end_col               = 11
+      i_end_row               = 5000
+    TABLES
+      intern                  = xl_itab
+    EXCEPTIONS
+      inconsistent_parameters = 1
+      upload_ole              = 2
+      OTHERS                  = 3.
+
+  IF sy-subrc = 0.
+
+    LOOP AT xl_itab INTO xl_itab.
+      CASE xl_itab-col.
+        WHEN '1'.
+          gs_out-superfield = xl_itab-value.
+        WHEN '2'.
+          gs_out-ekorg = xl_itab-value.
+        WHEN '3'.
+          gs_out-ekgrp = xl_itab-value.
+        WHEN '4'.
+          gs_out-bukrs = xl_itab-value.
+        WHEN '5'.
+          gs_out-ematn = xl_itab-value.
+        WHEN '6'.
+          gs_out-menge = xl_itab-value.
+        WHEN '7'.
+          gs_out-netpr = xl_itab-value.
+        WHEN '8'.
+          gs_out-waers = xl_itab-value.
+        WHEN '9'.
+          gs_out-name1 = xl_itab-value.
+        WHEN '10'.
+          gs_out-lgobe = xl_itab-value.
+      ENDCASE.
+
+      AT END OF row.
+
+        APPEND gs_out TO gt_out.
+        CLEAR gs_out.
+
+      ENDAT.
+    ENDLOOP.
+  ENDIF.
+
+
+  LOOP AT gt_out INTO gs_out.
+
+    " Header Level Data
+
+    pohead-comp_code  = gs_out-bukrs      .
+    pohead-doc_type   = 'NB'              .
+    pohead-creat_date = sy-datum          .
+    pohead-vendor     = gs_out-superfield .
+    pohead-purch_org  = gs_out-ekorg      .
+    pohead-pur_group  = gs_out-ekgrp      .
+    pohead-langu      = sy-langu          .
+    pohead-doc_date   = sy-datum          .
+    APPEND pohead.
+
+    poheadx-comp_code  = c_x.
+    poheadx-doc_type   = c_x.
+    poheadx-creat_date = c_x.
+    poheadx-vendor     = c_x.
+    poheadx-langu      = c_x.
+    poheadx-purch_org  = c_x.
+    poheadx-pur_group  = c_x.
+    poheadx-doc_date   = c_x.
+    APPEND poheadx.
+
+* Item Level Data
+    poitem-po_item  = 1           .
+    poitem-material = gs_out-ematn.
+    poitem-plant    = gs_out-name1.
+    poitem-stge_loc = gs_out-lgobe.
+    poitem-quantity = gs_out-menge.
+    APPEND poitem.
+
+    poitemx-po_item    = 1.
+    poitemx-po_itemx   = c_x.
+    poitemx-material   = c_x.
+    poitemx-plant      = c_x.
+    poitemx-stge_loc   = c_x.
+    poitemx-quantity   = c_x.
+    poitemx-tax_code   = c_x.
+    poitemx-item_cat   = c_x.
+    poitemx-acctasscat = c_x.
+    APPEND poitemx.
+
+
+* Schedule Line Level Data
+    posched-po_item        = 1.
+    posched-sched_line     = 1.
+    posched-del_datcat_ext = 'D'.
+    del_date = sy-datum + 1.
+    WRITE del_date TO posched-delivery_date.
+    posched-deliv_time     = '000001'.
+    posched-quantity       = gs_out-menge.
+    APPEND posched.
+
+    poschedx-po_item        = 1.
+    poschedx-sched_line     = 1.
+    poschedx-po_itemx       = c_x.
+    poschedx-sched_linex    = c_x.
+    poschedx-del_datcat_ext = c_x.
+    poschedx-delivery_date  = c_x.
+    poschedx-quantity       = c_x.
+    APPEND poschedx.
+
+  ENDLOOP.
+
+    CALL FUNCTION 'BAPI_PO_CREATE1'
+    EXPORTING
+      poheader         = pohead
+      poheaderx        = poheadx
+      testrun          = ' '
+    IMPORTING
+      exppurchaseorder = ex_po_number
+      expheader        = exp_head
+    TABLES
+      return           = return
+      poitem           = poitem[]
+      poitemx          = poitemx
+      poschedule       = posched
+      poschedulex      = poschedx.
+
+  CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+    EXPORTING
+      wait = 'X'.
+
+  IF NOT ex_po_number IS INITIAL.
+    CALL FUNCTION 'DEQUEUE_ALL'.
+  ELSE.
+    CALL FUNCTION 'DEQUEUE_ALL'.
+*  message i036.
+  ENDIF. 
