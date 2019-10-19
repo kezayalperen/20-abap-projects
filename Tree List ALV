@@ -1,0 +1,220 @@
+
+
+
+
+DATA : it_ekko TYPE TABLE OF          zp1512_s012 ,
+       gs_ekko TYPE                   zp1512_s012 ,
+       it_ekpo TYPE TABLE OF          zp1512_s013 ,
+       gs_ekpo TYPE                   zp1512_s013 ,
+       gt_node TYPE STANDARD TABLE OF snodetext   ,
+       gs_node TYPE                   snodetext   .
+
+CONSTANTS:
+      C_COL_KEY   TYPE C LENGTH 1 VALUE COL_KEY,
+      C_COL_DATA  TYPE C LENGTH 1 VALUE COL_NORMAL,
+      C_COL_CURR  TYPE C LENGTH 1 VALUE COL_TOTAL,
+      C_COL_KUNNR TYPE C LENGTH 1 VALUE COL_KEY,
+      C_COL_VBELN TYPE C LENGTH 1 VALUE COL_POSITIVE,
+      C_COL_POSNR TYPE C LENGTH 1 VALUE COL_GROUP.
+
+START-OF-SELECTION.
+
+  PERFORM load_all_data.
+
+  PERFORM prepare_node_table.
+
+  PERFORM display_list_tree.
+*&---------------------------------------------------------------------*
+*&      Form  LOAD_ALL_DATA
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM LOAD_ALL_DATA .
+  SELECT NAME1
+       EKK~EBELN
+       NETWR
+       MEINS
+       MENGE
+       LFA~LIFNR
+       NETPR
+       WAERS
+  INTO CORRESPONDING FIELDS OF TABLE IT_EKKO
+  FROM LFA1 AS LFA
+  INNER JOIN EKKO AS EKK
+  ON LFA~LIFNR EQ EKK~LIFNR
+  LEFT OUTER JOIN EKPO AS EKP
+  ON EKK~EBELN EQ EKP~EBELN.
+  DELETE ADJACENT DUPLICATES FROM IT_EKKO COMPARING LIFNR.
+
+  IF it_ekko IS NOT INITIAL.
+
+    SELECT *
+      INTO CORRESPONDING FIELDS OF TABLE it_ekpo
+          FROM EKKO AS EKK
+          INNER JOIN EKPO AS EKP
+          ON EKK~EBELN EQ EKP~EBELN
+          INNER JOIN MARA AS MAR
+          ON MAR~MEINS EQ EKP~MEINS
+          INNER JOIN MAKT AS MAK
+          ON MAK~MATNR EQ MAR~MATNR
+          FOR ALL ENTRIES IN it_ekko
+          WHERE EKK~ebeln eq it_ekko-ebeln.
+
+    IF sy-subrc = 0.
+      SORT it_ekpo.
+    ENDIF.
+  ENDIF.
+ENDFORM.                    " LOAD_ALL_DATA
+*&---------------------------------------------------------------------*
+*&      Form  PREPARE_NODE_TABLE
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM PREPARE_NODE_TABLE .
+  data:
+        l_netwr type c length 15.
+
+  "Create a root node
+  gs_node-tlevel = 1.
+*  gs_node-type   = 'H'.
+  gs_node-name   = 'Customers'.
+  gs_node-nlength = 20.
+  gs_node-color = c_col_key.
+  gs_node-text   = 'SAS REPORT'.
+  gs_node-tlength = 50.
+  append gs_node to gt_node.
+
+
+  loop at it_ekko into gs_ekko.
+
+    clear gs_node.
+
+    gs_node-tlevel = 2.
+
+    gs_node-name   = gs_ekko-lifnr.
+    gs_node-nlength = 20.
+*    gs_node-color = c_col_kunnr.
+
+    "Country code
+    gs_node-text   = gs_ekko-name1.
+    gs_node-tlength = 20.
+*    gs_node-tcolor = c_col_data.
+
+    "Customer Name
+    gs_node-text1   = gs_ekko-netwr.
+    gs_node-tlength1 = 20.
+*    gs_node-tcolor1 = c_col_data.
+
+    "City
+    gs_node-text2   = gs_ekko-menge.
+    gs_node-tlength2 = 20.
+*    gs_node-tcolor2 = c_col_data.
+
+    gs_node-text2   = gs_ekko-meins.
+    gs_node-tlength2 = 20.
+*    gs_node-tcolor2 = c_col_data.
+
+    gs_node-text2   = gs_ekko-netpr.
+    gs_node-tlength2 = 20.
+*    gs_node-tcolor2 = c_col_data.
+
+    gs_node-text2   = gs_ekko-waers.
+    gs_node-tlength2 = 20.
+*    gs_node-tcolor2 = c_col_data.
+
+    append gs_node to gt_node.
+
+    loop at it_ekpo into gs_ekpo.
+
+      clear gs_node.
+
+      gs_node-tlevel = 3.
+
+      "Sales Document Number
+      gs_node-name   = gs_ekpo-ebeln.
+      gs_node-nlength = 20.
+*      gs_node-color = c_col_vbeln.
+
+      "Created date
+      gs_node-text   = gs_ekpo-ebelp.
+      gs_node-tlength = 20.
+*      gs_node-tcolor = c_col_data.
+
+      "Created Time
+      gs_node-text1   = gs_ekpo-matnr.
+      gs_node-tlength1 = 20.
+*      gs_node-tcolor1 = c_col_data.
+
+      "Net worth
+      l_netwr = gs_ekpo-maktx.
+      gs_node-text2   = l_netwr.
+      gs_node-tlength2 = 20.
+*      gs_node-tcolor2 = c_col_curr.
+
+      "Currency
+      gs_node-text3   = gs_ekpo-netwr.
+      gs_node-tlength3 = 20.
+*      gs_node-tcolor3 = c_col_curr.
+
+      gs_node-name   = gs_ekpo-netpr.
+      gs_node-nlength = 15.
+*      gs_node-color = c_col_vbeln.
+
+      gs_node-name   = gs_ekpo-menge.
+      gs_node-nlength = 15.
+*      gs_node-color = c_col_vbeln.
+
+      gs_node-name   = gs_ekpo-meins.
+      gs_node-nlength = 15.
+*      gs_node-color = c_col_vbeln.
+
+      gs_node-name   = gs_ekpo-netwr.
+      gs_node-nlength = 15.
+*      gs_node-color = c_col_vbeln.
+
+      gs_node-name   = gs_ekpo-waers.
+      gs_node-nlength = 15.
+*      gs_node-color = c_col_vbeln.
+
+      append gs_node to gt_node.
+
+    endloop.
+  endloop.
+ENDFORM.                    " PREPARE_NODE_TABLE
+*&---------------------------------------------------------------------*
+*&      Form  DISPLAY_LIST_TREE
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM DISPLAY_LIST_TREE .
+  CALL FUNCTION 'RS_TREE_CONSTRUCT'
+*   EXPORTING
+*     INSERT_ID                = '000000'
+*     RELATIONSHIP             = ' '
+*     LOG                      =
+    tables
+      nodetab                  = gt_node
+   exceptions
+     tree_failure             = 1
+     id_not_found             = 2
+     wrong_relationship       = 3
+     others                   = 4
+            .
+  if sy-subrc <> 0.
+    write sy-subrc.
+  endif.
+
+  CALL FUNCTION 'RS_TREE_LIST_DISPLAY'
+    EXPORTING
+      callback_program = sy-repid.
+
+ENDFORM.                    " DISPLAY_LIST_TREE 
